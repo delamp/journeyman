@@ -1,0 +1,1560 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Journeyman</title>
+<meta name="description" content="Game Notes: Journeyman — dictate thoughts, keep screenshots and clips, and turn your playthrough into a journal.">
+<meta name="theme-color" content="#0e1015">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e1015; --bg2: #141720; --card: #1a1e29; --card2: #222736; --line: #2c3243;
+    --ink: #eef0f6; --ink2: #a9b0c3; --ink3: #737b91;
+    --amber: #f3b24c; --amber2: #ffcf7d; --amberDim: rgba(243,178,76,.14);
+    --teal: #5ccab3; --tealDim: rgba(92,202,179,.14); --red: #ff7b72; --violet: #a993ff;
+    --r: 18px; --shadow: 0 10px 30px rgba(0,0,0,.35);
+    --safeB: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Inter, system-ui, sans-serif; }
+  body { min-height: 100vh; overscroll-behavior-y: contain; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  input, textarea, select { font: inherit; color: var(--ink); }
+  h1, h2, h3 { font-family: Fraunces, Georgia, serif; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px calc(110px + var(--safeB)); }
+  [hidden] { display: none !important; }
+  svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+  /* ---------- top bar ---------- */
+  .top { display: flex; align-items: center; gap: 12px; padding: 18px 0 10px; }
+  .brand { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+  .brand img { width: 34px; height: 34px; border-radius: 10px; }
+  .brand h1 { font-size: 22px; }
+  .brand small { display: block; color: var(--ink3); font: 500 11px/1 Inter; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 3px; }
+  .iconBtn { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: var(--card); color: var(--ink2); }
+  .iconBtn:active { transform: scale(.96); }
+
+  /* ---------- library ---------- */
+  .hero { position: relative; border-radius: 24px; overflow: hidden; background: var(--card); margin: 8px 0 22px; box-shadow: var(--shadow); min-height: 210px; display: flex; }
+  .hero .bg { position: absolute; inset: 0; background-size: cover; background-position: center; filter: saturate(1.1); }
+  .hero .bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(14,16,21,.15) 0%, rgba(14,16,21,.55) 45%, rgba(14,16,21,.96) 100%); }
+  .hero .in { position: relative; padding: 18px; display: flex; flex-direction: column; justify-content: flex-end; width: 100%; gap: 10px; }
+  .eyebrow { font: 600 11px/1 Inter; letter-spacing: .14em; text-transform: uppercase; color: var(--amber); }
+  .hero h2 { font-size: 28px; line-height: 1.1; }
+  .hero .meta { color: var(--ink2); font-size: 13px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 46px; padding: 0 18px; border-radius: 14px; font-weight: 600; background: var(--card2); color: var(--ink); }
+  .btn.primary { background: var(--amber); color: #23170a; }
+  .btn.ghost { background: rgba(255,255,255,.08); backdrop-filter: blur(8px); }
+  .btn.small { height: 36px; padding: 0 12px; border-radius: 11px; font-size: 13px; }
+  .btn:active { transform: scale(.98); }
+  .btn[disabled] { opacity: .55; pointer-events: none; }
+  .sectionHead { display: flex; align-items: baseline; justify-content: space-between; margin: 6px 2px 12px; }
+  .sectionHead h3 { font-size: 18px; }
+  .sectionHead span { color: var(--ink3); font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .gcard { border-radius: var(--r); background: var(--card); overflow: hidden; text-align: left; display: flex; flex-direction: column; }
+  .gcard .cv { aspect-ratio: 16/10; background: var(--card2) center/cover; position: relative; }
+  .gcard .cv .ph { position: absolute; inset: 0; display: grid; place-items: center; font: 700 34px Fraunces; color: var(--ink3); }
+  .gcard .tx { padding: 10px 12px 12px; }
+  .gcard b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gcard small { color: var(--ink3); font-size: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 99px; font: 600 11px/1 Inter; background: var(--card2); color: var(--ink2); }
+  .pill.playing { background: var(--tealDim); color: var(--teal); }
+  .pill.finished { background: var(--amberDim); color: var(--amber); }
+  .pill.paused { background: rgba(169,147,255,.14); color: var(--violet); }
+  .gcard .cv .pill { position: absolute; left: 8px; top: 8px; backdrop-filter: blur(6px); background: rgba(14,16,21,.6); }
+  .newCard { border: 1.5px dashed var(--line); border-radius: var(--r); display: grid; place-items: center; min-height: 160px; color: var(--ink2); gap: 6px; text-align: center; }
+  .empty { text-align: center; color: var(--ink2); padding: 40px 20px; }
+  .empty h2 { font-size: 26px; margin-bottom: 8px; color: var(--ink); }
+
+  /* ---------- game view ---------- */
+  .banner { position: relative; margin: 0 -16px; height: 220px; background: var(--card) center/cover; }
+  .banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(14,16,21,.35), rgba(14,16,21,.2) 40%, var(--bg) 100%); }
+  .banner .bar { position: absolute; z-index: 2; top: 14px; left: 16px; right: 16px; display: flex; justify-content: space-between; }
+  .banner .bar .iconBtn { background: rgba(14,16,21,.55); backdrop-filter: blur(8px); color: var(--ink); }
+  .gHead { position: relative; z-index: 2; margin-top: -70px; }
+  .gHead h2 { font-size: 30px; line-height: 1.1; }
+  .gHead .meta { color: var(--ink2); font-size: 13px; margin-top: 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0 6px; }
+  .act { background: var(--card); border-radius: 16px; padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--ink2); }
+  .act svg.i { width: 22px; height: 22px; color: var(--amber); }
+  .tabs { display: flex; gap: 6px; margin: 16px 0 14px; overflow-x: auto; scrollbar-width: none; position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { height: 36px; padding: 0 14px; border-radius: 99px; background: var(--card); color: var(--ink2); font-weight: 600; font-size: 13.5px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+  .tab.on { background: var(--ink); color: var(--bg); }
+  .tab .n { font-size: 11px; opacity: .7; }
+
+  .session { margin-bottom: 22px; }
+  .sHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 2px 10px; }
+  .sHead b { font-family: Fraunces, serif; font-size: 16px; }
+  .sHead small { display: block; color: var(--ink3); font-size: 12px; }
+  .pageCard { background: linear-gradient(135deg, #2a2216, #1d1a16); border: 1px solid #3b2f1d; border-radius: var(--r); padding: 14px 16px; margin-bottom: 10px; text-align: left; width: 100%; }
+  .pageCard .eyebrow { margin-bottom: 6px; display: block; }
+  .pageCard b { font-family: Fraunces, serif; font-size: 17px; display: block; }
+  .pageCard p { color: #d9ccb6; margin: 6px 0 0; font-size: 13.5px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+  .entry { background: var(--card); border-radius: var(--r); padding: 14px 14px 12px; margin-bottom: 10px; position: relative; }
+  .entry .hd { display: flex; align-items: center; gap: 10px; }
+  .entry .em { width: 34px; height: 34px; border-radius: 11px; background: var(--card2); display: grid; place-items: center; font-size: 17px; flex: none; }
+  .entry .tt { flex: 1; min-width: 0; }
+  .entry .tt b { display: block; font-weight: 600; line-height: 1.25; }
+  .entry .tt small { color: var(--ink3); font-size: 12px; }
+  .entry .bd { margin: 8px 0 0; color: var(--ink2); white-space: pre-wrap; }
+  .entry.spoil .bd, .entry.spoil .thumbs { filter: blur(7px); user-select: none; }
+  .entry .spoilTag { position: absolute; right: 12px; top: 12px; }
+  .entry .ft { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+  .tag { font-size: 11.5px; color: var(--ink3); background: var(--bg2); padding: 3px 8px; border-radius: 8px; }
+  .revisitLine { display: flex; gap: 8px; align-items: center; margin-top: 10px; padding: 8px 10px; border-radius: 12px; background: var(--amberDim); color: var(--amber2); font-size: 13px; }
+  .revisitLine.done { background: var(--tealDim); color: var(--teal); text-decoration: line-through; }
+  .thumbs { display: flex; gap: 8px; margin-top: 10px; overflow-x: auto; scrollbar-width: none; }
+  .thumb { position: relative; width: 120px; height: 80px; border-radius: 12px; background: var(--card2) center/cover; flex: none; overflow: hidden; }
+  .thumb.one { width: 100%; height: auto; aspect-ratio: 16/9; }
+  .thumb .play { position: absolute; inset: 0; display: grid; place-items: center; }
+  .thumb .play span { width: 40px; height: 40px; border-radius: 99px; background: rgba(0,0,0,.55); display: grid; place-items: center; }
+  .organizing { display: inline-flex; align-items: center; gap: 6px; color: var(--amber); font-size: 12px; }
+  .dotPulse { width: 7px; height: 7px; border-radius: 99px; background: var(--amber); animation: pulse 1s infinite ease-in-out; }
+  @keyframes pulse { 50% { opacity: .25; transform: scale(.7); } }
+
+  .check { display: flex; gap: 12px; align-items: flex-start; background: var(--card); border-radius: 16px; padding: 12px 14px; margin-bottom: 8px; }
+  .check .box { width: 26px; height: 26px; border-radius: 9px; border: 2px solid var(--amber); flex: none; display: grid; place-items: center; margin-top: 1px; }
+  .check.done .box { background: var(--teal); border-color: var(--teal); color: #08221c; }
+  .check.done b { text-decoration: line-through; color: var(--ink3); }
+  .check b { font-weight: 600; display: block; }
+  .check small { color: var(--ink3); font-size: 12px; }
+
+  .moments { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .moment { position: relative; border-radius: 14px; overflow: hidden; aspect-ratio: 1; background: var(--card2) center/cover; text-align: left; }
+  .moment .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 20px 10px 8px; background: linear-gradient(transparent, rgba(0,0,0,.8)); font-size: 12.5px; font-weight: 600; }
+  .moment .em { position: absolute; top: 8px; left: 8px; font-size: 16px; }
+  .quoteMoment { aspect-ratio: auto; min-height: 150px; padding: 14px; background: var(--card); display: flex; flex-direction: column; justify-content: space-between; }
+  .quoteMoment p { margin: 0; font-family: Fraunces, serif; font-size: 13.5px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .quoteMoment small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .filterRow { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: -4px 0 12px; }
+  .chip { height: 34px; padding: 0 12px; border-radius: 99px; background: var(--card); color: var(--ink2); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; border: 1.5px solid transparent; }
+  .chip.on { border-color: var(--amber); color: var(--amber2); background: var(--amberDim); }
+  .search { display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 14px; padding: 0 12px; height: 44px; margin-bottom: 12px; color: var(--ink3); }
+  .search input { flex: 1; background: none; border: 0; outline: 0; height: 100%; }
+
+  /* ---------- floating capture ---------- */
+  .fab { position: fixed; z-index: 20; right: 18px; bottom: calc(20px + var(--safeB)); height: 62px; padding: 0 22px 0 18px; border-radius: 22px; background: var(--amber); color: #23170a; font-weight: 700; display: flex; align-items: center; gap: 10px; box-shadow: 0 12px 30px rgba(243,178,76,.35), 0 4px 10px rgba(0,0,0,.4); }
+  .fab svg.i { width: 24px; height: 24px; stroke-width: 2.4; }
+  .fab:active { transform: scale(.97); }
+
+  /* ---------- sheets ---------- */
+  .scrim { position: fixed; inset: 0; z-index: 40; background: rgba(5,6,10,.6); backdrop-filter: blur(3px); opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .scrim.show { opacity: 1; pointer-events: auto; }
+  .sheet { position: fixed; z-index: 41; left: 0; right: 0; bottom: 0; max-height: 92vh; overflow-y: auto; background: var(--bg2); border-radius: 26px 26px 0 0; padding: 10px 18px calc(22px + var(--safeB)); transform: translateY(105%); transition: transform .28s cubic-bezier(.2,.8,.2,1); max-width: 720px; margin: 0 auto; }
+  .sheet.show { transform: none; }
+  .grab { width: 42px; height: 5px; border-radius: 9px; background: var(--line); margin: 0 auto 12px; }
+  .sheet h3 { font-size: 21px; }
+  .sheetHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .gamePick { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 99px; background: var(--card); color: var(--ink2); font-size: 13px; font-weight: 600; max-width: 60%; }
+  .gamePick span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  textarea.note { width: 100%; min-height: 120px; resize: vertical; background: var(--card); border: 1.5px solid var(--line); border-radius: 16px; padding: 14px; outline: 0; font-size: 16px; line-height: 1.45; }
+  textarea.note:focus { border-color: var(--amber); }
+  .micRow { display: flex; align-items: center; gap: 14px; margin: 14px 0 6px; }
+  .mic { width: 74px; height: 74px; border-radius: 99px; background: var(--amber); color: #23170a; display: grid; place-items: center; flex: none; box-shadow: 0 8px 24px rgba(243,178,76,.3); position: relative; }
+  .mic svg.i { width: 30px; height: 30px; stroke-width: 2.2; }
+  .mic.on { background: var(--red); color: #fff; box-shadow: 0 0 0 0 rgba(255,123,114,.6); animation: ring 1.4s infinite; }
+  @keyframes ring { 70% { box-shadow: 0 0 0 18px rgba(255,123,114,0); } 100% { box-shadow: 0 0 0 0 rgba(255,123,114,0); } }
+  .hint { color: var(--ink2); font-size: 13.5px; }
+  .hint.err { color: var(--red); }
+  .attachRow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
+  .attachBtn { height: 48px; border-radius: 14px; background: var(--card); display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; color: var(--ink2); font-size: 14px; }
+  .attachBtn svg.i { color: var(--teal); }
+  .attachments { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 4px; }
+  .att { position: relative; width: 86px; height: 86px; border-radius: 14px; background: var(--card) center/cover; flex: none; overflow: hidden; }
+  .att .x { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 99px; background: rgba(0,0,0,.65); display: grid; place-items: center; }
+  .att .x svg.i { width: 14px; height: 14px; }
+  .att .bar { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--amber); width: 0; transition: width .2s; }
+  .att .vid { position: absolute; left: 6px; bottom: 6px; font-size: 11px; font-weight: 700; background: rgba(0,0,0,.6); padding: 1px 6px; border-radius: 6px; }
+  .psnRow { background: var(--card); border-radius: 16px; padding: 10px 12px 12px; margin: 4px 0 8px; }
+  .psnRow .ph { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--ink2); margin-bottom: 8px; }
+  .psnRow .ph b { color: var(--ink); font-weight: 600; }
+  .psnRow .list { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+  .pcap { position: relative; width: 112px; height: 63px; border-radius: 10px; background: var(--card2) center/cover; flex: none; overflow: hidden; outline: 2px solid transparent; outline-offset: -2px; opacity: .55; transition: opacity .15s, outline-color .15s; }
+  .pcap.on { outline-color: var(--teal); opacity: 1; }
+  .pcap .when { position: absolute; left: 5px; bottom: 4px; font-size: 10.5px; font-weight: 700; background: rgba(0,0,0,.65); padding: 1px 5px; border-radius: 5px; }
+  .pcap .tick { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 99px; background: var(--teal); color: #08110f; display: none; place-items: center; }
+  .pcap.on .tick { display: grid; }
+  .pcap .tick svg.i { width: 13px; height: 13px; stroke-width: 3; }
+  .psnLine { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink3); margin: -12px 4px 18px; }
+  .psnLine.warn { color: var(--amber); }
+  .watching { display: inline-flex; align-items: center; gap: 6px; color: var(--teal); font-size: 12px; }
+  .entry.capture .bd { color: var(--ink3); font-style: italic; }
+  .label { font: 600 11px/1 Inter; letter-spacing: .12em; text-transform: uppercase; color: var(--ink3); margin: 16px 2px 8px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .toggles { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .tgl { height: 36px; padding: 0 12px; border-radius: 12px; background: var(--card); color: var(--ink2); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid transparent; }
+  .tgl.on { border-color: var(--violet); color: var(--violet); background: rgba(169,147,255,.12); }
+  .saveBar { display: flex; gap: 10px; margin-top: 18px; }
+  .saveBar .btn { flex: 1; height: 52px; font-size: 16px; }
+  .field { width: 100%; height: 50px; border-radius: 14px; background: var(--card); border: 1.5px solid var(--line); padding: 0 14px; outline: 0; font-size: 16px; }
+  .field:focus { border-color: var(--amber); }
+  .coverPick { margin-top: 12px; height: 140px; border-radius: 16px; background: var(--card) center/cover; border: 1.5px dashed var(--line); display: grid; place-items: center; color: var(--ink2); font-weight: 600; width: 100%; }
+  .coverPick.has { border-style: solid; color: transparent; }
+
+  .reader { font-size: 16px; line-height: 1.7; color: #e3dccd; white-space: pre-wrap; }
+  .reader.paper { background: linear-gradient(180deg, #221d16, #1b1813); border: 1px solid #3a2e1c; border-radius: 18px; padding: 18px; }
+  .viewer { border-radius: 16px; overflow: hidden; background: #000; margin: 0 -4px 14px; min-height: 160px; display: grid; place-items: center; }
+  .viewer img { width: 100%; display: block; }
+  .rawBox { background: var(--card); border-radius: 14px; padding: 12px; color: var(--ink3); font-size: 13.5px; white-space: pre-wrap; }
+  .menuList button { width: 100%; text-align: left; padding: 14px 6px; border-bottom: 1px solid var(--line); font-weight: 500; display: flex; gap: 12px; align-items: center; }
+  .menuList button.danger { color: var(--red); }
+  .gameRow { width: 100%; display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; background: var(--card); margin-bottom: 8px; text-align: left; }
+  .gameRow .cv { width: 56px; height: 40px; border-radius: 9px; background: var(--card2) center/cover; flex: none; }
+  .answer { background: var(--card); border-radius: 16px; padding: 14px; margin-top: 12px; white-space: pre-wrap; }
+
+  .toast { position: fixed; z-index: 60; left: 50%; bottom: calc(96px + var(--safeB)); transform: translate(-50%, 20px); background: var(--ink); color: var(--bg); padding: 12px 16px; border-radius: 14px; font-weight: 600; font-size: 14px; opacity: 0; pointer-events: none; transition: all .22s; max-width: calc(100% - 32px); display: flex; gap: 12px; align-items: center; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  .toast button { color: #a4610a; font-weight: 700; }
+  .demo { background: var(--violet); color: #160f33; text-align: center; font-size: 12.5px; font-weight: 600; padding: 6px 10px; }
+  .spinner { width: 22px; height: 22px; border: 3px solid var(--line); border-top-color: var(--amber); border-radius: 99px; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading { display: grid; place-items: center; padding: 60px 0; }
+  .offline { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--violet); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+  <symbol id="i-photo" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></symbol>
+  <symbol id="i-cam" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M9 7h6"/></symbol>
+  <symbol id="i-rewind" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 8v4l3 2"/></symbol>
+  <symbol id="i-ask" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4M9.5 9a1.8 1.8 0 1 1 2.3 1.7c-.5.2-.8.6-.8 1.1v.4M11 14.5h.01"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.8 5.8 6.2.9-4.5 4.4 1 6.3L12 17.5 6.5 20.4l1-6.3L3 9.7l6.2-.9z"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-feather" viewBox="0 0 24 24"><path d="M20 4c-6 0-12 4-13 13l-3 3M7 17h7c3-1 5-4 6-8h-6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z" fill="currentColor"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6L20 9"/><path d="M20 4v5h-5"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="i-drive" viewBox="0 0 24 24"><path d="M8 4h8l5 9-4 7H7l-4-7z"/><path d="M8 4l9 16M16 4L7 20M3 13h18"/></symbol>
+</svg>
+
+<div class="demo" id="demoBar" hidden>Demo mode — notes stay on this phone. Connect your Google backend to sync.</div>
+
+<!-- ===================== LIBRARY ===================== -->
+<main class="wrap" id="libView">
+  <div class="top">
+    <div class="brand"><img src="icon-192.png" alt=""><div><small>Game Notes</small><h1>Journeyman</h1></div></div>
+    <button class="iconBtn" id="libRefresh" aria-label="Refresh"><svg class="i"><use href="#i-refresh"/></svg></button>
+  </div>
+  <div id="libBody"><div class="loading"><div class="spinner"></div></div></div>
+</main>
+
+<!-- ===================== GAME ===================== -->
+<main class="wrap" id="gameView" hidden>
+  <div class="banner" id="gBanner">
+    <div class="bar">
+      <button class="iconBtn" id="gBack" aria-label="Back to library"><svg class="i"><use href="#i-back"/></svg></button>
+      <button class="iconBtn" id="gMore" aria-label="Game options"><svg class="i"><use href="#i-more"/></svg></button>
+    </div>
+  </div>
+  <div class="gHead">
+    <h2 id="gTitle"></h2>
+    <div class="meta" id="gMeta"></div>
+  </div>
+  <div class="actions">
+    <button class="act" id="aRecap"><svg class="i"><use href="#i-rewind"/></svg>Catch me up</button>
+    <button class="act" id="aAsk"><svg class="i"><use href="#i-ask"/></svg>Ask my journal</button>
+    <button class="act" id="aStory"><svg class="i"><use href="#i-feather"/></svg>My story</button>
+  </div>
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-tab="journal">Journal</button>
+    <button class="tab" data-tab="revisit">Come back to <span class="n" id="nRevisit"></span></button>
+    <button class="tab" data-tab="moments">Moments</button>
+    <button class="tab" data-tab="pages">Pages</button>
+  </div>
+  <div id="gBody"></div>
+</main>
+
+<button class="fab" id="fab"><svg class="i"><use href="#i-mic"/></svg><span>Capture</span></button>
+
+<!-- ===================== SHEETS ===================== -->
+<div class="scrim" id="scrim"></div>
+
+<section class="sheet" id="capSheet" aria-label="Capture a note">
+  <div class="grab"></div>
+  <div class="sheetHead">
+    <h3>Capture</h3>
+    <button class="gamePick" id="capGame"><svg class="i" style="width:16px;height:16px"><use href="#i-flag"/></svg><span id="capGameName">Pick a game</span></button>
+  </div>
+  <textarea class="note" id="capText" placeholder="What just happened? Say it or type it…"></textarea>
+  <div class="micRow">
+    <button class="mic" id="mic" aria-label="Dictate"><svg class="i" id="micIcon"><use href="#i-mic"/></svg></button>
+    <div class="hint" id="hint">Tap the mic and talk. Ramble — Journeyman tidies it into a journal entry.</div>
+  </div>
+  <div class="attachRow">
+    <button class="attachBtn" id="pickMedia"><svg class="i"><use href="#i-photo"/></svg>Screenshot / clip</button>
+    <button class="attachBtn" id="pickCam"><svg class="i"><use href="#i-cam"/></svg>Camera</button>
+  </div>
+  <input type="file" id="fileIn" accept="image/*,video/*" multiple hidden>
+  <input type="file" id="camIn" accept="image/*" capture="environment" hidden>
+  <div class="attachments" id="atts"></div>
+  <div class="psnRow" id="psnRow" hidden></div>
+  <div class="label">What kind of moment? <span style="text-transform:none;letter-spacing:0;font-weight:500">(optional)</span></div>
+  <div class="chips" id="typeChips"></div>
+  <div class="toggles">
+    <button class="tgl" id="tRevisit"><svg class="i" style="width:16px;height:16px"><use href="#i-pin"/></svg>Come back later</button>
+    <button class="tgl" id="tFav"><svg class="i" style="width:16px;height:16px"><use href="#i-star"/></svg>Favorite</button>
+    <button class="tgl" id="tSpoil"><svg class="i" style="width:16px;height:16px"><use href="#i-eye"/></svg>Spoiler</button>
+  </div>
+  <div class="saveBar">
+    <button class="btn" id="capCancel">Cancel</button>
+    <button class="btn primary" id="capSave">Save to journal</button>
+  </div>
+</section>
+
+<section class="sheet" id="gameSheet" aria-label="Game">
+  <div class="grab"></div>
+  <div class="sheetHead"><h3 id="gsTitle">New game</h3></div>
+  <input class="field" id="gsName" placeholder="Game title" autocomplete="off">
+  <div class="label">Platform</div>
+  <div class="chips" id="platChips"></div>
+  <div class="label">Status</div>
+  <div class="chips" id="statusChips"></div>
+  <div class="label">About this playthrough <span style="text-transform:none;letter-spacing:0;font-weight:500">(optional — helps the AI)</span></div>
+  <input class="field" id="gsAbout" placeholder="e.g. First time, playing blind, co-op with my brother" autocomplete="off">
+  <button class="coverPick" id="gsCover">Add cover art</button>
+  <input type="file" id="coverIn" accept="image/*" hidden>
+  <div class="saveBar">
+    <button class="btn" id="gsCancel">Cancel</button>
+    <button class="btn primary" id="gsSave">Start journal</button>
+  </div>
+</section>
+
+<section class="sheet" id="pickSheet" aria-label="Pick a game">
+  <div class="grab"></div>
+  <div class="sheetHead"><h3>Which game?</h3></div>
+  <div id="pickList"></div>
+  <button class="btn" style="width:100%;margin-top:6px" id="pickNew"><svg class="i"><use href="#i-plus"/></svg>New game</button>
+</section>
+
+<section class="sheet" id="readSheet" aria-label="Reader">
+  <div class="grab"></div>
+  <div id="readBody"></div>
+</section>
+
+<section class="sheet" id="askSheet" aria-label="Ask my journal">
+  <div class="grab"></div>
+  <div class="sheetHead"><h3>Ask my journal</h3></div>
+  <div class="row" style="flex-wrap:nowrap">
+    <input class="field" id="askQ" placeholder="Where was that locked door?" autocomplete="off">
+    <button class="mic" id="askMic" style="width:50px;height:50px;box-shadow:none" aria-label="Ask by voice"><svg class="i" style="width:22px;height:22px"><use href="#i-mic"/></svg></button>
+  </div>
+  <div class="saveBar"><button class="btn primary" id="askGo">Ask</button></div>
+  <div id="askOut"></div>
+</section>
+
+<section class="sheet" id="menuSheet" aria-label="Options">
+  <div class="grab"></div>
+  <div class="menuList" id="menuList"></div>
+</section>
+
+<div class="toast" id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastBtn" hidden></button></div>
+
+<script>
+'use strict';
+// ====================================================================================
+// Config. After deploying the Apps Script web app, paste its /exec URL here.
+// Until then the app runs in demo mode (everything stays on this phone).
+// ====================================================================================
+const API = 'PASTE_WEB_APP_EXEC_URL_HERE';
+const DEMO = !/^https:\/\/script\.google\.com\//.test(API);
+
+const TYPES = {
+  thought:   { e: '💭', l: 'Thought' },
+  funny:     { e: '😂', l: 'Funny' },
+  epic:      { e: '🔥', l: 'Epic' },
+  story:     { e: '📜', l: 'Story' },
+  theory:    { e: '🔮', l: 'Theory' },
+  tip:       { e: '💡', l: 'Tip' },
+  revisit:   { e: '📍', l: 'Come back' },
+  quote:     { e: '💬', l: 'Quote' },
+  milestone: { e: '🏆', l: 'Milestone' },
+  feels:     { e: '🥹', l: 'Feels' },
+};
+const PLATFORMS = ['PS5', 'Xbox', 'Switch', 'PC', 'Steam Deck', 'Mobile', 'Other'];
+const STATUSES = { playing: 'Playing', paused: 'On hold', finished: 'Finished', dropped: 'Dropped' };
+const SESSION_GAP_MS = 3 * 3600 * 1000;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const icon = (id, style) => `<svg class="i"${style ? ` style="${style}"` : ''}><use href="#${id}"/></svg>`;
+const buzz = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+};
+
+// ---- Key: from "#k=..." in the install link, then remembered on this phone ----
+const KEY = (() => {
+  const fromHash = new URLSearchParams(location.hash.slice(1)).get('k');
+  if (fromHash) store.set('jmKey', fromHash);
+  return fromHash || store.get('jmKey', '');
+})();
+if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+
+// ====================================================================================
+// API (real backend, or the demo backend below)
+// ====================================================================================
+let queue = Promise.resolve();
+function api(action, params) {
+  if (DEMO) return Demo.call(action, params || {});
+  const run = () => fetch(API, {
+    method: 'POST', redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // "simple" request: no CORS preflight
+    body: JSON.stringify(Object.assign({ k: KEY, action }, params || {})),
+  }).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+    .then((t) => {
+      if (t.trim() === 'Not authorized') throw new Error('auth');
+      const r = JSON.parse(t);
+      if (!r.ok) throw new Error(r.error || 'Something went wrong.');
+      return r;
+    });
+  // Writes go one at a time so quick taps land in order; reads don't wait.
+  if (/^(library|game|mediaView|syncCaptures|recentCaptures)$/.test(action)) return run();
+  const p = queue.then(run, run);
+  queue = p.catch(() => {});
+  return p;
+}
+function errText(e) {
+  const m = e && e.message || '';
+  if (m === 'auth') return 'This link’s key is off. Open your full Journeyman link again.';
+  if (/HTTP|fetch|NetworkError|Load failed|JSON/i.test(m)) return 'Can’t reach your journal right now.';
+  return m || 'Something went wrong.';
+}
+const isOffline = (e) => /fetch|NetworkError|Load failed/i.test(e && e.message || '') || !navigator.onLine;
+
+// ====================================================================================
+// State
+// ====================================================================================
+const S = {
+  games: store.get('jmGames', []),   // cached library for instant open
+  game: null, entries: [], media: {}, pages: [],
+  tab: 'journal', filter: 'all', search: '',
+  currentGameId: store.get('jmCurrent', ''),
+  psn: store.get('jmPsn', null),     // PlayStation Capture Sync status from the backend
+};
+const psnOn = () => !!(S.psn && S.psn.connected);
+
+// ====================================================================================
+// Toast
+// ====================================================================================
+let toastTimer;
+function toast(msg, action, fn, ms) {
+  $('toastMsg').textContent = msg;
+  const b = $('toastBtn');
+  b.hidden = !action; b.textContent = action || '';
+  b.onclick = () => { hideToast(); fn && fn(); };
+  $('toast').classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, ms || 3000);
+}
+function hideToast() { $('toast').classList.remove('show'); }
+
+// ====================================================================================
+// Sheets
+// ====================================================================================
+const openSheets = [];
+let skipPop = 0; // our own history.back() calls shouldn't close anything else
+function goBack() { skipPop++; history.back(); }
+function openSheet(id) {
+  const el = $(id);
+  if (openSheets.indexOf(id) < 0) openSheets.push(id);
+  $('scrim').classList.add('show');
+  el.style.zIndex = 41 + openSheets.length;
+  requestAnimationFrame(() => el.classList.add('show'));
+  history.pushState({ sheet: id }, '');
+}
+function closeSheet(id, fromPop) {
+  const i = openSheets.indexOf(id);
+  if (i < 0) return;
+  openSheets.splice(i, 1);
+  $(id).classList.remove('show');
+  if (!openSheets.length) $('scrim').classList.remove('show');
+  if (!fromPop) goBack();
+  if (id === 'capSheet') stopListening();
+}
+$('scrim').onclick = () => openSheets.length && closeSheet(openSheets[openSheets.length - 1]);
+window.addEventListener('popstate', () => {
+  if (skipPop) { skipPop--; return; }
+  if (openSheets.length) closeSheet(openSheets[openSheets.length - 1], true);
+  else if (!$('gameView').hidden) showLibrary(true);
+});
+
+// ====================================================================================
+// Library
+// ====================================================================================
+function relDay(iso) {
+  if (!iso) return '';
+  const d = new Date(iso), now = new Date();
+  const days = Math.floor((new Date(now.toDateString()) - new Date(d.toDateString())) / 864e5);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return days + ' days ago';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+}
+function ago(t) {
+  const m = Math.round((Date.now() - new Date(t).getTime()) / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return m + ' min ago';
+  const h = Math.round(m / 60);
+  return h < 24 ? h + ' h ago' : relDay(new Date(t).toISOString());
+}
+function coverStyle(g) { return g && g.cover ? `background-image:url('${g.cover}')` : ''; }
+function initials(t) { return String(t || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase(); }
+
+function renderLibrary() {
+  const games = S.games;
+  const body = $('libBody');
+  if (!games.length) {
+    body.innerHTML = `<div class="empty"><h2>Every journey needs a journal.</h2>
+      <p>Add the game you’re playing, then capture thoughts, funny moments, screenshots and clips as they happen. Journeyman keeps it all organized so you can enjoy the moment.</p>
+      <button class="btn primary" id="emptyNew" style="margin-top:10px">${icon('i-plus')}Add your first game</button></div>`;
+    $('emptyNew').onclick = () => openGameSheet();
+    return;
+  }
+  const cur = games.find((g) => g.id === S.currentGameId && g.status === 'playing') || games.find((g) => g.status === 'playing') || games[0];
+  const c = cur.counts || {};
+  let html = `<div class="hero">
+    <div class="bg" style="${coverStyle(cur)}"></div>
+    <div class="in">
+      <span class="eyebrow">${cur.status === 'playing' ? 'Now playing' : 'Last played'}</span>
+      <h2>${esc(cur.title)}</h2>
+      <div class="meta">${[cur.platform, (c.notes || 0) + ' notes', c.revisit ? c.revisit + ' to come back to' : '', 'played ' + relDay(cur.lastPlayedAt)].filter(Boolean).map(esc).join(' · ')}</div>
+      <div class="row">
+        <button class="btn primary" id="heroCap">${icon('i-mic')}Capture</button>
+        <button class="btn ghost" id="heroOpen">${icon('i-book')}Open journal</button>
+      </div>
+    </div></div>`;
+  if (S.psn && S.psn.status === 'reconnect') html += `<div class="psnLine warn">🎮 PlayStation sign-in expired: paste a new NPSSO and run connectPlayStation() (see SETUP).</div>`;
+  else if (psnOn()) html += `<div class="psnLine">🎮 PS5 captures sync in${S.psn.lastSync ? ' · checked ' + esc(ago(S.psn.lastSync)) : ''}</div>`;
+  const pending = store.get('jmQueue', []).length;
+  html += `<div class="sectionHead"><h3>Your games</h3><span>${pending ? `<span class="offline">${pending} note${pending > 1 ? 's' : ''} waiting to sync</span>` : games.length + (games.length === 1 ? ' journal' : ' journals')}</span></div><div class="grid">`;
+  games.forEach((g) => {
+    html += `<button class="gcard" data-id="${esc(g.id)}">
+      <div class="cv" style="${coverStyle(g)}">${g.cover ? '' : `<div class="ph">${esc(initials(g.title))}</div>`}<span class="pill ${esc(g.status)}">${esc(STATUSES[g.status] || g.status)}</span></div>
+      <div class="tx"><b>${esc(g.title)}</b><small>${(g.counts && g.counts.notes) || 0} notes · ${esc(relDay(g.lastPlayedAt))}</small></div></button>`;
+  });
+  html += `<button class="newCard" id="libNew"><div>${icon('i-plus', 'width:26px;height:26px')}<div style="font-weight:600;margin-top:4px">New game</div></div></button></div>`;
+  body.innerHTML = html;
+  $('heroCap').onclick = () => openCapture({ gameId: cur.id });
+  $('heroOpen').onclick = () => openGame(cur.id);
+  $('libNew').onclick = () => openGameSheet();
+  body.querySelectorAll('.gcard').forEach((b) => b.onclick = () => openGame(b.dataset.id));
+}
+
+function loadLibrary() {
+  return api('library').then((r) => {
+    S.games = r.games || [];
+    store.set('jmGames', S.games);
+    if (r.psn) { S.psn = r.psn; store.set('jmPsn', S.psn); }
+    if (!$('libView').hidden) renderLibrary();
+  }).catch((e) => { if (!S.games.length) $('libBody').innerHTML = `<div class="empty"><p>${esc(errText(e))}</p></div>`; else toast(errText(e)); });
+}
+$('libRefresh').onclick = () => { flushQueue(); loadLibrary().then(() => toast('Up to date')); };
+
+function showLibrary(fromPop) {
+  $('gameView').hidden = true; $('libView').hidden = false;
+  S.game = null;
+  renderLibrary();
+  window.scrollTo(0, 0);
+  if (!fromPop) goBack();
+  loadLibrary();
+}
+
+// ====================================================================================
+// Game view
+// ====================================================================================
+function openGame(id) {
+  const g = S.games.find((x) => x.id === id);
+  S.game = g || { id, title: '…' };
+  S.entries = []; S.pages = []; S.media = {};
+  S.tab = 'journal'; S.filter = 'all'; S.search = '';
+  setCurrent(id);
+  $('libView').hidden = true; $('gameView').hidden = false;
+  history.pushState({ game: id }, '');
+  window.scrollTo(0, 0);
+  renderGameHead();
+  $('gBody').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  setTabs();
+  return loadGame();
+}
+function loadGame() {
+  const id = S.game.id;
+  return api('game', { id }).then((r) => {
+    if (!S.game || S.game.id !== id) return;
+    S.game = Object.assign({}, S.game, r.game);
+    S.entries = r.entries || [];
+    S.media = {}; (r.media || []).forEach((m) => S.media[m.id] = m);
+    S.pages = r.pages || [];
+    // Notes still waiting to sync show up too.
+    store.get('jmQueue', []).filter((q) => q.gameId === id).forEach((q) => S.entries.push(queuedEntry(q)));
+    renderGameHead(); renderGame();
+  }).catch((e) => { $('gBody').innerHTML = `<div class="empty"><p>${esc(errText(e))}</p></div>`; });
+}
+function setCurrent(id) { S.currentGameId = id; store.set('jmCurrent', id); }
+
+function renderGameHead() {
+  const g = S.game;
+  $('gBanner').style.backgroundImage = g.cover ? `url('${g.cover}')` : 'linear-gradient(135deg,#2a2f40,#141720)';
+  $('gTitle').textContent = g.title;
+  const n = S.entries.length;
+  $('gMeta').innerHTML = [g.status ? `<span class="pill ${esc(g.status)}">${esc(STATUSES[g.status] || g.status)}</span>` : '',
+    g.platform ? esc(g.platform) : '', n ? n + ' notes' : '', g.createdAt ? 'since ' + esc(new Date(g.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })) : '']
+    .filter(Boolean).join(' <span style="opacity:.4">·</span> ');
+  const open = S.entries.filter((e) => e.revisit && !e.done).length;
+  $('nRevisit').textContent = open ? open : '';
+}
+
+function setTabs() {
+  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('on', t.dataset.tab === S.tab));
+}
+$('tabs').onclick = (ev) => {
+  const t = ev.target.closest('.tab'); if (!t) return;
+  S.tab = t.dataset.tab; S.filter = 'all'; setTabs(); renderGame();
+};
+
+function sessionsOf(entries) {
+  const sorted = entries.slice().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+  const out = [];
+  sorted.forEach((e) => {
+    const last = out[out.length - 1];
+    const t = new Date(e.createdAt).getTime();
+    if (last && t - last.end < SESSION_GAP_MS) { last.items.push(e); last.end = t; }
+    else out.push({ start: t, end: t, items: [e] });
+  });
+  return out.reverse(); // newest session first
+}
+
+function renderGame() {
+  const body = $('gBody');
+  if (S.tab === 'journal') return renderJournal(body);
+  if (S.tab === 'revisit') return renderRevisit(body);
+  if (S.tab === 'moments') return renderMoments(body);
+  if (S.tab === 'pages') return renderPages(body);
+}
+
+function matches(e) {
+  if (S.filter !== 'all' && e.type !== S.filter && !(S.filter === 'fav' && e.favorite)) return false;
+  if (!S.search) return true;
+  const hay = [e.title, e.body, e.raw, (e.tags || []).join(' ')].join(' ').toLowerCase();
+  return S.search.toLowerCase().split(/\s+/).every((w) => hay.includes(w));
+}
+
+function renderJournal(body) {
+  if (!S.entries.length) {
+    body.innerHTML = `<div class="empty"><h2>Blank pages.</h2><p>Hit Capture while you play. Talk about what just happened, why it was funny, what you think is coming. Add the screenshot. That’s it.</p></div>`;
+    return;
+  }
+  const used = {}; S.entries.forEach((e) => used[e.type] = 1);
+  let html = `<div class="search">${icon('i-search')}<input id="q" placeholder="Search your notes" value="${esc(S.search)}"></div>
+    <div class="filterRow"><button class="chip ${S.filter === 'all' ? 'on' : ''}" data-f="all">All</button>
+    <button class="chip ${S.filter === 'fav' ? 'on' : ''}" data-f="fav">⭐ Favorites</button>
+    ${Object.keys(TYPES).filter((t) => used[t]).map((t) => `<button class="chip ${S.filter === t ? 'on' : ''}" data-f="${t}">${TYPES[t].e} ${TYPES[t].l}</button>`).join('')}</div><div id="sessions">`;
+  const sessions = sessionsOf(S.entries);
+  let shown = 0;
+  sessions.forEach((s, i) => {
+    const items = s.items.filter(matches);
+    if (!items.length) return;
+    shown += items.length;
+    const d = new Date(s.start);
+    const mins = Math.round((s.end - s.start) / 60000);
+    const page = S.pages.find((p) => p.kind === 'session' && p.fromAt === s.items[0].createdAt);
+    const sessNo = sessions.length - i;
+    html += `<div class="session"><div class="sHead"><div><b>Session ${sessNo}</b><small>${esc(d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${s.items.length} note${s.items.length > 1 ? 's' : ''}${mins > 4 ? ' · ' + (mins >= 60 ? Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm' : mins + 'm') : ''}</small></div>
+      ${page ? '' : `<button class="btn small" data-write="${i}">${icon('i-feather', 'width:16px;height:16px')}Write page</button>`}</div>`;
+    if (page && !S.search && S.filter === 'all') html += pageCardHtml(page);
+    items.slice().reverse().forEach((e) => html += entryHtml(e));
+    html += '</div>';
+  });
+  if (!shown) html += `<div class="empty"><p>Nothing matches.</p></div>`;
+  body.innerHTML = html + '</div>';
+  const q = $('q');
+  q.oninput = () => { S.search = q.value; const pos = q.selectionStart; renderJournal(body); const n = $('q'); n.focus(); n.setSelectionRange(pos, pos); };
+  body.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { S.filter = b.dataset.f; renderJournal(body); });
+  body.querySelectorAll('[data-write]').forEach((b) => b.onclick = () => writePage(sessions[+b.dataset.write], b));
+  wireEntries(body);
+}
+
+function pageCardHtml(p) {
+  const label = p.kind === 'recap' ? 'Previously on' : p.kind === 'chronicle' ? 'The Chronicle' : 'Journal page';
+  return `<button class="pageCard" data-page="${esc(p.id)}"><span class="eyebrow">${label}</span><b>${esc(p.title)}</b><p>${esc(p.body)}</p></button>`;
+}
+
+const CAPTURE_TYPE = { e: '📸', l: 'From your PS5' };
+function typeOf(e) { return e.kind === 'capture' ? CAPTURE_TYPE : TYPES[e.type] || TYPES.thought; }
+function entryHtml(e) {
+  const t = typeOf(e);
+  const time = new Date(e.createdAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const media = (e.mediaIds || []).map((id) => S.media[id]).filter(Boolean);
+  const thumbs = media.length ? `<div class="thumbs">${media.map((m) => `<div class="thumb ${media.length === 1 ? 'one' : ''}" data-media="${esc(m.id)}" style="background-image:url('${m.thumb || ''}')">${m.kind === 'video' ? `<div class="play"><span>${icon('i-play', 'width:18px;height:18px')}</span></div>` : ''}</div>`).join('')}</div>` : '';
+  const status = e._queued ? `<span class="offline">Saved on phone · will sync</span>`
+    : e.aiStatus === 'pending' ? `<span class="organizing"><span class="dotPulse"></span>Organizing…</span>`
+    : capWatch.until > Date.now() && capWatch.ids[e.id] && !media.length ? `<span class="watching"><span class="dotPulse"></span>Watching for your PS5 screenshot…</span>` : '';
+  if (e.kind === 'capture') e = Object.assign({}, e, { body: 'Nothing said about this yet. Tap to say why it matters.' });
+  return `<article class="entry ${e.spoiler ? 'spoil' : ''} ${e.kind === 'capture' ? 'capture' : ''}" data-entry="${esc(e.id)}">
+    ${e.spoiler ? `<span class="pill spoilTag" style="background:rgba(169,147,255,.18);color:var(--violet)">Spoiler · tap</span>` : ''}
+    <div class="hd"><div class="em">${t.e}</div><div class="tt"><b>${esc(e.title || 'Note')}${e.favorite ? ' ⭐' : ''}</b><small>${esc(time)} · ${esc(t.l)}${e.mood ? ' · ' + esc(e.mood) : ''}</small></div></div>
+    ${e.body ? `<p class="bd">${esc(e.body)}</p>` : ''}
+    ${thumbs}
+    ${e.revisit ? `<div class="revisitLine ${e.done ? 'done' : ''}">${icon(e.done ? 'i-check' : 'i-pin', 'width:16px;height:16px')}${esc(e.revisitWhat || 'Come back to this')}</div>` : ''}
+    ${(e.tags && e.tags.length) || status ? `<div class="ft">${(e.tags || []).map((x) => `<span class="tag">#${esc(x)}</span>`).join('')}${status}</div>` : ''}
+  </article>`;
+}
+
+function wireEntries(root) {
+  root.querySelectorAll('[data-entry]').forEach((el) => el.onclick = (ev) => {
+    const e = S.entries.find((x) => x.id === el.dataset.entry);
+    if (!e) return;
+    if (e.spoiler && el.classList.contains('spoil')) { el.classList.remove('spoil'); el.querySelector('.spoilTag').remove(); return; }
+    const th = ev.target.closest('[data-media]');
+    if (th) return openMedia(th.dataset.media, e);
+    if (e.kind === 'capture') return talkAbout(e);
+    openEntry(e);
+  });
+  root.querySelectorAll('[data-page]').forEach((el) => el.onclick = () => openPage(S.pages.find((p) => p.id === el.dataset.page)));
+}
+
+function renderRevisit(body) {
+  const items = S.entries.filter((e) => e.revisit).sort((a, b) => (a.done - b.done) || String(b.createdAt).localeCompare(String(a.createdAt)));
+  if (!items.length) {
+    body.innerHTML = `<div class="empty"><h2>Nothing pinned.</h2><p>Spot a locked door, a chest you can’t reach, a side quest for later? Capture it and tap <b>Come back later</b> — or just say “come back to this.”</p></div>`;
+    return;
+  }
+  body.innerHTML = items.map((e) => `<div class="check ${e.done ? 'done' : ''}" data-entry="${esc(e.id)}">
+    <button class="box" data-toggle="${esc(e.id)}" aria-label="Mark done">${e.done ? icon('i-check', 'width:16px;height:16px;stroke-width:3') : ''}</button>
+    <div style="flex:1;min-width:0"><b>${esc(e.revisitWhat || e.title || 'Come back to this')}</b><small>${esc(e.title && e.revisitWhat ? e.title + ' · ' : '')}${esc(relDay(e.createdAt))}</small></div>
+    ${(e.mediaIds || []).length && S.media[e.mediaIds[0]] ? `<div class="thumb" style="width:56px;height:42px;background-image:url('${S.media[e.mediaIds[0]].thumb}')"></div>` : ''}
+  </div>`).join('');
+  body.querySelectorAll('[data-toggle]').forEach((b) => b.onclick = (ev) => {
+    ev.stopPropagation();
+    const e = S.entries.find((x) => x.id === b.dataset.toggle);
+    patchEntry(e, { done: !e.done }, e.done ? 'Back on the list' : 'Nice — checked off');
+    buzz(15);
+  });
+  body.querySelectorAll('.check').forEach((el) => el.onclick = () => openEntry(S.entries.find((x) => x.id === el.dataset.entry)));
+}
+
+function renderMoments(body) {
+  const list = S.entries.filter((e) => !e.spoiler && ((e.mediaIds || []).length || e.favorite || /funny|epic|quote|milestone|feels/.test(e.type)))
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  if (!list.length) {
+    body.innerHTML = `<div class="empty"><h2>No highlights yet.</h2><p>Screenshots, clips, funny bits, epic wins and favorites collect here — your highlight reel.</p></div>`;
+    return;
+  }
+  body.innerHTML = '<div class="moments">' + list.map((e) => {
+    const m = (e.mediaIds || []).map((id) => S.media[id]).find(Boolean);
+    const t = typeOf(e);
+    if (m) return `<button class="moment" data-entry="${esc(e.id)}" style="background-image:url('${m.thumb || ''}')"><span class="em">${m.kind === 'video' ? '🎬' : t.e}</span><div class="cap">${esc(e.title || '')}</div></button>`;
+    return `<button class="moment quoteMoment" data-entry="${esc(e.id)}"><span style="font-size:20px">${t.e}</span><p>${esc((e.body || '').slice(0, 140))}</p><small style="color:var(--ink3)">${esc(e.title || '')}</small></button>`;
+  }).join('') + '</div>';
+  body.querySelectorAll('[data-entry]').forEach((el) => el.onclick = () => {
+    const e = S.entries.find((x) => x.id === el.dataset.entry);
+    if ((e.mediaIds || []).length) openMedia(e.mediaIds[0], e); else openEntry(e);
+  });
+}
+
+function renderPages(body) {
+  const order = { chronicle: 0, recap: 1, session: 2 };
+  const pages = S.pages.slice().sort((a, b) => (order[a.kind] - order[b.kind]) || String(b.fromAt).localeCompare(String(a.fromAt)));
+  if (!pages.length) {
+    body.innerHTML = `<div class="empty"><h2>Your book is unwritten.</h2><p>After a session, tap <b>Write page</b> on it and Journeyman turns your notes into a journal page in your own voice. When you finish the game, <b>My story</b> writes the whole journey.</p></div>`;
+    return;
+  }
+  body.innerHTML = pages.map(pageCardHtml).join('');
+  wireEntries(body);
+}
+
+// ====================================================================================
+// Entry details, media, pages
+// ====================================================================================
+function openEntry(e) {
+  if (!e) return;
+  if (e.kind === 'capture') return talkAbout(e);
+  const t = typeOf(e);
+  const media = (e.mediaIds || []).map((id) => S.media[id]).filter(Boolean);
+  $('readBody').innerHTML = `
+    <div class="sheetHead"><div><span class="eyebrow">${t.e} ${esc(t.l)} · ${esc(new Date(e.createdAt).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</span>
+    <h3 style="margin-top:6px">${esc(e.title || 'Note')}</h3></div></div>
+    ${media.length ? `<div class="thumbs" style="margin-bottom:12px">${media.map((m) => `<div class="thumb ${media.length === 1 ? 'one' : ''}" data-media="${esc(m.id)}" style="background-image:url('${m.thumb || ''}')">${m.kind === 'video' ? `<div class="play"><span>${icon('i-play', 'width:18px;height:18px')}</span></div>` : ''}</div>`).join('')}</div>` : ''}
+    <div class="reader">${esc(e.body || '')}</div>
+    ${e.revisit ? `<div class="revisitLine ${e.done ? 'done' : ''}">${icon('i-pin', 'width:16px;height:16px')}${esc(e.revisitWhat || 'Come back to this')}</div>` : ''}
+    ${e.raw && e.raw !== e.body ? `<div class="label">What you said</div><div class="rawBox">${esc(e.raw)}</div>` : ''}
+    <div class="label">Type</div><div class="chips" id="eTypes">${Object.keys(TYPES).map((k) => `<button class="chip ${e.type === k ? 'on' : ''}" data-t="${k}">${TYPES[k].e} ${TYPES[k].l}</button>`).join('')}</div>
+    <div class="toggles">
+      <button class="tgl ${e.revisit && !e.done ? 'on' : ''}" id="eRev">${icon('i-pin', 'width:16px;height:16px')}${e.revisit ? (e.done ? 'Done ✓' : 'Come back later') : 'Come back later'}</button>
+      <button class="tgl ${e.favorite ? 'on' : ''}" id="eFav">${icon('i-star', 'width:16px;height:16px')}Favorite</button>
+      <button class="tgl ${e.spoiler ? 'on' : ''}" id="eSpo">${icon('i-eye', 'width:16px;height:16px')}Spoiler</button>
+    </div>
+    <div class="saveBar">
+      <button class="btn" id="eEdit">${icon('i-edit')}Edit</button>
+      ${e._queued ? '' : `<button class="btn" id="eRedo">${icon('i-refresh')}Re-tidy</button>`}
+      <button class="btn" id="eDel" style="color:var(--red);flex:0 0 52px" aria-label="Delete">${icon('i-trash')}</button>
+    </div>`;
+  openSheet('readSheet');
+  const rb = $('readBody');
+  rb.querySelectorAll('[data-media]').forEach((el) => el.onclick = () => openMedia(el.dataset.media, e));
+  if (e._queued) { rb.querySelectorAll('#eTypes button, .toggles button, #eEdit').forEach((b) => b.disabled = true); }
+  rb.querySelectorAll('#eTypes [data-t]').forEach((b) => b.onclick = () => { patchEntry(e, { type: b.dataset.t, revisit: b.dataset.t === 'revisit' ? true : e.revisit }); closeSheet('readSheet'); });
+  $('eRev').onclick = () => { patchEntry(e, e.revisit && !e.done ? { done: true } : { revisit: true, done: false }); closeSheet('readSheet'); };
+  $('eFav').onclick = () => { patchEntry(e, { favorite: !e.favorite }); closeSheet('readSheet'); };
+  $('eSpo').onclick = () => { patchEntry(e, { spoiler: !e.spoiler }); closeSheet('readSheet'); };
+  $('eEdit').onclick = () => editEntry(e);
+  if ($('eRedo')) $('eRedo').onclick = () => { closeSheet('readSheet'); retidy(e); };
+  $('eDel').onclick = () => deleteEntry(e);
+}
+
+function editEntry(e) {
+  $('readBody').innerHTML = `<div class="sheetHead"><h3>Edit note</h3></div>
+    <input class="field" id="edTitle" value="${esc(e.title)}" placeholder="Title">
+    <textarea class="note" id="edBody" style="margin-top:10px;min-height:180px">${esc(e.body)}</textarea>
+    <input class="field" id="edRev" style="margin-top:10px" value="${esc(e.revisitWhat)}" placeholder="Come back for… (optional)">
+    <div class="saveBar"><button class="btn" id="edCancel">Cancel</button><button class="btn primary" id="edSave">Save</button></div>`;
+  $('edCancel').onclick = () => closeSheet('readSheet');
+  $('edSave').onclick = () => {
+    const patch = { title: $('edTitle').value.trim(), body: $('edBody').value.trim(), revisitWhat: $('edRev').value.trim() };
+    if (patch.revisitWhat && !e.revisit) patch.revisit = true;
+    patchEntry(e, patch, 'Saved');
+    closeSheet('readSheet');
+  };
+}
+
+function patchEntry(e, patch, msg) {
+  const before = Object.assign({}, e);
+  Object.assign(e, patch);
+  renderGameHead(); renderGame();
+  api('updateEntry', { id: e.id, patch }).then((r) => { Object.assign(e, r.entry); renderGameHead(); renderGame(); if (msg) toast(msg); })
+    .catch((err) => { Object.assign(e, before); renderGameHead(); renderGame(); toast(errText(err)); });
+}
+
+function retidy(e) {
+  e.aiStatus = 'pending'; renderGame();
+  api('reorganize', { id: e.id }).then((r) => { Object.assign(e, r.entry); renderGameHead(); renderGame(); toast('Re-tidied'); })
+    .catch((err) => { e.aiStatus = 'failed'; renderGame(); toast(errText(err)); });
+}
+
+function deleteEntry(e) {
+  closeSheet('readSheet');
+  if (e._queued) {
+    store.set('jmQueue', store.get('jmQueue', []).filter((q) => q.clientId !== e.clientId));
+    S.entries = S.entries.filter((x) => x !== e); renderGameHead(); renderGame(); return;
+  }
+  // Undo window first; delete for real after it closes.
+  const idx = S.entries.indexOf(e);
+  S.entries.splice(idx, 1); renderGameHead(); renderGame();
+  let undone = false;
+  toast('Note deleted' + ((e.mediaIds || []).length ? ' (and its photos/clips)' : ''), 'Undo', () => { undone = true; S.entries.splice(idx, 0, e); renderGameHead(); renderGame(); }, 4500);
+  setTimeout(() => { if (!undone) api('deleteEntry', { id: e.id }).catch((err) => toast(errText(err))); }, 4700);
+}
+
+function openMedia(mediaId, e) {
+  const m = S.media[mediaId]; if (!m) return;
+  $('readBody').innerHTML = `<div class="viewer" id="mv"><img src="${m.thumb || ''}" alt="" id="mvImg"></div>
+    <div class="sheetHead"><h3>${esc(e.title || 'Capture')}</h3></div>
+    <div class="reader">${esc(e.body || '')}</div>
+    <div class="saveBar">${m.kind === 'video' ? `<button class="btn primary" id="mvPlay">${icon('i-play')}Play clip</button>` : ''}
+      <button class="btn" id="mvDrive">${icon('i-drive')}Open in Drive</button></div>
+    <div class="hint" style="margin-top:8px" id="mvHint">${m.kind === 'video' ? 'Clips play in Google Drive (they stay private in your Drive).' : 'Loading full size…'}</div>`;
+  if (openSheets.indexOf('readSheet') < 0) openSheet('readSheet');
+  if (e.kind === 'capture') {
+    $('readBody').querySelector('.reader').innerHTML = '';
+    $('readBody').querySelector('.saveBar').insertAdjacentHTML('afterbegin', `<button class="btn primary" id="mvTalk">${icon('i-mic')}Talk about it</button>`);
+    $('mvTalk').onclick = () => { closeSheet('readSheet'); setTimeout(() => talkAbout(e), 250); };
+  }
+  if (!m.fileId) { // a PS5 clip too big to copy into Drive
+    $('mvDrive').remove(); if ($('mvPlay')) $('mvPlay').remove();
+    $('mvHint').textContent = 'This clip was too big to copy to Drive. It’s in the PlayStation App (for 14 days from when you took it).';
+    return;
+  }
+  const driveUrl = 'https://drive.google.com/file/d/' + m.fileId + '/view';
+  $('mvDrive').onclick = () => window.open(driveUrl, '_blank');
+  if ($('mvPlay')) $('mvPlay').onclick = () => window.open(driveUrl, '_blank');
+  api('mediaView', { id: mediaId }).then((r) => {
+    if (r.data && $('mvImg')) $('mvImg').src = 'data:' + r.mime + ';base64,' + r.data;
+    if (m.kind !== 'video' && $('mvHint')) $('mvHint').textContent = '';
+  }).catch(() => { if ($('mvHint') && m.kind !== 'video') $('mvHint').textContent = ''; });
+}
+
+function openPage(p) {
+  if (!p) return;
+  const label = p.kind === 'recap' ? 'Previously on' : p.kind === 'chronicle' ? 'The Chronicle' : 'Journal page';
+  const when = p.kind === 'session' ? new Date(p.fromAt).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) : 'Written ' + relDay(p.createdAt);
+  $('readBody').innerHTML = `<span class="eyebrow">${label} · ${esc(when)}</span><h3 style="margin:6px 0 14px;font-size:24px">${esc(p.title)}</h3>
+    <div class="reader paper">${esc(p.body)}</div>
+    <div class="saveBar">
+      ${p.kind === 'session' ? `<button class="btn" id="pgRedo">${icon('i-refresh')}Rewrite</button>` : ''}
+      <button class="btn" id="pgShare">Share</button>
+      <button class="btn" id="pgDel" style="color:var(--red);flex:0 0 52px" aria-label="Delete page">${icon('i-trash')}</button>
+    </div>`;
+  if (openSheets.indexOf('readSheet') < 0) openSheet('readSheet');
+  $('pgShare').onclick = () => {
+    const text = p.title + '\n\n' + p.body + '\n\n— ' + S.game.title + ', from my Journeyman journal';
+    if (navigator.share) navigator.share({ title: p.title, text }).catch(() => {});
+    else navigator.clipboard.writeText(text).then(() => toast('Copied'));
+  };
+  if ($('pgRedo')) $('pgRedo').onclick = () => {
+    closeSheet('readSheet');
+    const s = sessionsOf(S.entries).find((x) => x.items[0].createdAt === p.fromAt);
+    if (s) writePage(s);
+  };
+  $('pgDel').onclick = () => {
+    closeSheet('readSheet');
+    S.pages = S.pages.filter((x) => x !== p); renderGame();
+    api('deletePage', { id: p.id }).catch((err) => toast(errText(err)));
+  };
+}
+
+function busy(btn, label) {
+  if (!btn) return () => {};
+  const old = btn.innerHTML; btn.disabled = true;
+  btn.innerHTML = `<span class="spinner" style="width:16px;height:16px;border-width:2px"></span>${label || ''}`;
+  return () => { btn.disabled = false; btn.innerHTML = old; };
+}
+
+function writePage(session, btn) {
+  const done = busy(btn, 'Writing…');
+  toast('Writing your journal page…', null, null, 8000);
+  api('writePage', { gameId: S.game.id, entryIds: session.items.filter((e) => !e._queued).map((e) => e.id) }).then((r) => {
+    S.pages = S.pages.filter((p) => !(p.kind === 'session' && p.fromAt === r.page.fromAt)).concat(r.page);
+    hideToast(); renderGame(); openPage(r.page);
+  }).catch((e) => toast(errText(e))).then(done);
+}
+
+$('aRecap').onclick = () => {
+  const existing = S.pages.find((p) => p.kind === 'recap');
+  const lastNote = S.entries.reduce((m, e) => e.createdAt > m ? e.createdAt : m, '');
+  if (existing && existing.toAt >= lastNote) return openPage(existing);
+  const done = busy($('aRecap'), 'Thinking…');
+  api('recap', { gameId: S.game.id }).then((r) => {
+    S.pages = S.pages.filter((p) => p.kind !== 'recap').concat(r.page); openPage(r.page);
+  }).catch((e) => toast(errText(e))).then(done);
+};
+$('aStory').onclick = () => {
+  const existing = S.pages.find((p) => p.kind === 'chronicle');
+  if (existing) return openPage(existing);
+  if (S.entries.length < 3) return toast('Add a few more notes first — your story needs some chapters.');
+  const done = busy($('aStory'), 'Writing…');
+  toast('Writing your whole journey. This takes a minute…', null, null, 15000);
+  api('chronicle', { gameId: S.game.id }).then((r) => {
+    S.pages = S.pages.filter((p) => p.kind !== 'chronicle').concat(r.page); hideToast(); openPage(r.page);
+  }).catch((e) => toast(errText(e))).then(done);
+};
+
+// ---- Ask my journal ----
+$('aAsk').onclick = () => { $('askOut').innerHTML = ''; openSheet('askSheet'); setTimeout(() => $('askQ').focus(), 250); };
+$('askGo').onclick = () => {
+  const q = $('askQ').value.trim(); if (!q) return;
+  const done = busy($('askGo'), 'Looking…');
+  api('ask', { gameId: S.game.id, question: q }).then((r) => {
+    const refs = (r.entryIds || []).map((id) => S.entries.find((e) => e.id === id)).filter(Boolean);
+    $('askOut').innerHTML = `<div class="answer">${esc(r.answer)}</div>` + (refs.length ? `<div class="label">From these notes</div>` + refs.map(entryHtml).join('') : '');
+    wireEntries($('askOut'));
+  }).catch((e) => toast(errText(e))).then(done);
+};
+$('askQ').onkeydown = (ev) => { if (ev.key === 'Enter') $('askGo').click(); };
+$('askMic').onclick = () => listen($('askQ'), $('askMic'), null, () => $('askGo').click());
+
+// ---- Game menu ----
+$('gBack').onclick = () => history.back();
+$('gMore').onclick = () => {
+  const g = S.game;
+  $('menuList').innerHTML = `
+    <button data-m="edit">${icon('i-edit')}Edit game & cover</button>
+    ${g.status !== 'finished' ? `<button data-m="finish">${icon('i-flag')}I finished it! 🏆</button>` : ''}
+    ${g.status !== 'paused' && g.status !== 'finished' ? `<button data-m="pause">${icon('i-rewind')}Put on hold</button>` : ''}
+    ${g.status !== 'playing' ? `<button data-m="play">${icon('i-play')}Playing again</button>` : ''}
+    <button data-m="delete" class="danger">${icon('i-trash')}Delete this journal</button>`;
+  openSheet('menuSheet');
+  $('menuList').querySelectorAll('[data-m]').forEach((b) => b.onclick = () => {
+    closeSheet('menuSheet');
+    const m = b.dataset.m;
+    if (m === 'edit') return setTimeout(() => openGameSheet(g), 250);
+    if (m === 'delete') {
+      if (!confirm(`Delete the whole "${g.title}" journal, with its photos and clips? This can't be undone.`)) return;
+      api('deleteGame', { id: g.id }).then(() => { S.games = S.games.filter((x) => x.id !== g.id); store.set('jmGames', S.games); showLibrary(); toast('Journal deleted'); })
+        .catch((e) => toast(errText(e)));
+      return;
+    }
+    const status = { finish: 'finished', pause: 'paused', play: 'playing' }[m];
+    api('updateGame', { id: g.id, patch: { status } }).then((r) => {
+      Object.assign(S.game, r.game); updateGameInList(r.game); renderGameHead();
+      if (status === 'finished') toast('Congrats! Tap “My story” for your playthrough chronicle.', 'Write it', () => $('aStory').click(), 7000);
+    }).catch((e) => toast(errText(e)));
+  });
+};
+function updateGameInList(g) {
+  const i = S.games.findIndex((x) => x.id === g.id);
+  if (i >= 0) S.games[i] = Object.assign({}, S.games[i], g); else S.games.unshift(g);
+  store.set('jmGames', S.games);
+}
+
+// ====================================================================================
+// New / edit game
+// ====================================================================================
+let gs = {};
+function openGameSheet(g) {
+  gs = { id: g && g.id, platform: g && g.platform || '', status: g && g.status || 'playing', cover: g && g.cover || '' };
+  $('gsTitle').textContent = g ? 'Edit game' : 'New game';
+  $('gsSave').textContent = g ? 'Save' : 'Start journal';
+  $('gsName').value = g ? g.title : '';
+  $('gsAbout').value = g && g.about || '';
+  $('platChips').innerHTML = PLATFORMS.map((p) => `<button class="chip ${gs.platform === p ? 'on' : ''}" data-p="${p}">${p}</button>`).join('');
+  $('statusChips').innerHTML = Object.keys(STATUSES).map((k) => `<button class="chip ${gs.status === k ? 'on' : ''}" data-s="${k}">${STATUSES[k]}</button>`).join('');
+  $('statusChips').parentElement && ($('statusChips').previousElementSibling.hidden = !g, $('statusChips').hidden = !g);
+  setCover(gs.cover);
+  openSheet('gameSheet');
+  if (!g) setTimeout(() => $('gsName').focus(), 300);
+}
+$('platChips').onclick = (ev) => { const b = ev.target.closest('[data-p]'); if (!b) return; gs.platform = gs.platform === b.dataset.p ? '' : b.dataset.p; $('platChips').querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c.dataset.p === gs.platform)); };
+$('statusChips').onclick = (ev) => { const b = ev.target.closest('[data-s]'); if (!b) return; gs.status = b.dataset.s; $('statusChips').querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c.dataset.s === gs.status)); };
+function setCover(url) { const c = $('gsCover'); c.style.backgroundImage = url ? `url('${url}')` : ''; c.classList.toggle('has', !!url); c.textContent = url ? '' : 'Add cover art (a screenshot works great)'; }
+$('gsCover').onclick = () => $('coverIn').click();
+$('coverIn').onchange = () => {
+  const f = $('coverIn').files[0]; $('coverIn').value = '';
+  if (!f) return;
+  makeThumb(f, 520, 44000).then((url) => { gs.cover = url; setCover(url); }).catch(() => toast('Couldn’t read that image.'));
+};
+$('gsCancel').onclick = () => closeSheet('gameSheet');
+$('gsSave').onclick = () => {
+  const title = $('gsName').value.trim();
+  if (!title) { $('gsName').focus(); return toast('Give the game a name.'); }
+  const done = busy($('gsSave'), 'Saving…');
+  const fields = { title, platform: gs.platform, about: $('gsAbout').value.trim(), cover: gs.cover };
+  const p = gs.id ? api('updateGame', { id: gs.id, patch: Object.assign(fields, { status: gs.status }) }) : api('addGame', fields);
+  p.then((r) => {
+    updateGameInList(r.game);
+    closeSheet('gameSheet');
+    if (gs.id) { Object.assign(S.game, r.game); renderGameHead(); toast('Saved'); }
+    else {
+      const after = gs.afterCreate; gs.afterCreate = null;
+      if (after) after(r.game);
+      else setTimeout(() => { openGame(r.game.id); toast('Journal started. Hit Capture whenever something happens.'); }, 250);
+    }
+    if (!$('libView').hidden) renderLibrary();
+  }).catch((e) => toast(errText(e))).then(done);
+};
+
+// ====================================================================================
+// Capture
+// ====================================================================================
+const cap = { gameId: '', type: '', revisit: false, fav: false, spoiler: false, files: [] };
+function openCapture(opts) {
+  opts = opts || {};
+  Object.assign(cap, { gameId: opts.gameId || (S.game && S.game.id) || S.currentGameId, type: opts.type || '', revisit: false, fav: false, spoiler: false });
+  if (!opts.keepFiles) cap.files = [];
+  if (!S.games.find((g) => g.id === cap.gameId)) cap.gameId = (S.games.find((g) => g.status === 'playing') || S.games[0] || {}).id || '';
+  $('capText').value = opts.text || '';
+  cap.openedAt = Date.now();
+  renderCapture();
+  openSheet('capSheet');
+  if (!cap.gameId) setTimeout(() => pickGame(), 300);
+  loadPsnRow(opts.psnIds || []);
+}
+
+// ---- PS5 captures on the capture screen ----
+// The screenshot you just took with Create shows up here already ticked. Untick it and it stays out of this note.
+const psnRow = { items: [], picked: {}, loading: false, seq: 0 };
+function loadPsnRow(preIds) {
+  const seq = ++psnRow.seq;
+  psnRow.items = preIds.map((id) => S.media[id]).filter(Boolean);
+  psnRow.picked = {}; preIds.forEach((id) => psnRow.picked[id] = 1);
+  psnRow.loading = psnOn();
+  renderPsnRow();
+  if (!psnOn()) return;
+  api('recentCaptures', {}).then((r) => {
+    if (seq !== psnRow.seq) return;
+    if (r.psn) { S.psn = r.psn; store.set('jmPsn', S.psn); }
+    (r.captures || []).forEach((m) => {
+      S.media[m.id] = Object.assign(S.media[m.id] || {}, m);
+      if (psnRow.items.some((x) => x.id === m.id)) return;
+      psnRow.items.push(m);
+      // Taken in the last few minutes = almost certainly what you're about to talk about.
+      if (!preIds.length && Date.now() - new Date(m.takenAt).getTime() < 8 * 60000) psnRow.picked[m.id] = 1;
+    });
+    psnRow.items.sort((a, b) => String(b.takenAt).localeCompare(String(a.takenAt)));
+  }).catch(() => {}).then(() => { if (seq === psnRow.seq) { psnRow.loading = false; renderPsnRow(); } });
+}
+function renderPsnRow() {
+  const box = $('psnRow');
+  box.hidden = !psnOn() && !psnRow.items.length;
+  if (box.hidden) return;
+  const n = Object.keys(psnRow.picked).length;
+  let head, list = '';
+  if (psnRow.items.length) {
+    head = `<b>From your PS5</b><span>${n ? n + ' joining this note' : 'Tap to add'}</span>`;
+    list = `<div class="list">${psnRow.items.map((m) => `<button class="pcap ${psnRow.picked[m.id] ? 'on' : ''}" data-pc="${esc(m.id)}" style="background-image:url('${m.thumb || ''}')" aria-label="${m.kind === 'video' ? 'Clip' : 'Screenshot'} ${esc(ago(m.takenAt))}">
+      <span class="tick">${icon('i-check')}</span><span class="when">${m.kind === 'video' ? '🎬 ' : ''}${esc(ago(m.takenAt))}</span></button>`).join('')}</div>`;
+  } else if (psnRow.loading) {
+    head = `<span><span class="dotPulse"></span> Checking your PS5 captures…</span>`;
+  } else {
+    head = `<span>🎮 Press <b>Create</b> on your controller: the screenshot joins this note by itself.</span>`;
+  }
+  box.innerHTML = `<div class="ph" style="${list ? '' : 'margin:0'}">${head}</div>${list}`;
+  box.querySelectorAll('[data-pc]').forEach((b) => b.onclick = () => {
+    const id = b.dataset.pc;
+    if (psnRow.picked[id]) delete psnRow.picked[id]; else psnRow.picked[id] = 1;
+    buzz(8); renderPsnRow();
+  });
+}
+
+/** A PS5 capture nobody has talked about yet: open Capture with it attached. */
+function talkAbout(e) {
+  openCapture({ gameId: e.gameId, psnIds: (e.mediaIds || []).slice() });
+  $('hint').textContent = 'Say what this is and why it matters — funny, epic, a clue, a place to come back to.';
+}
+
+// ---- After saving: keep an eye out for the PS5 capture that goes with the note ----
+// PS5 Auto-upload usually lands a screenshot within a minute (clips take longer), so check a few times.
+const capWatch = { ids: {}, until: 0, timers: [] };
+function watchCaptures(entryId) {
+  if (!psnOn()) return;
+  capWatch.ids[entryId] = 1;
+  capWatch.until = Date.now() + 5 * 60000;
+  capWatch.timers.forEach(clearTimeout);
+  capWatch.timers = [12, 40, 80, 140, 220, 305].map((s) => setTimeout(checkCaptures, s * 1000));
+  if (S.game) renderGame();
+}
+function checkCaptures() {
+  const last = Date.now() >= capWatch.until;
+  api('syncCaptures', {}).then((r) => {
+    const changed = (r.attached || []).length || r.imported;
+    if (changed && S.game) loadGame();
+    if (changed && !S.game) loadLibrary();
+    const got = (r.attached || []).filter((id) => capWatch.ids[id]);
+    if (got.length) toast('📸 Your PS5 ' + (r.imported > 1 ? 'captures joined' : 'capture joined') + ' the note');
+  }).catch(() => {}).then(() => {
+    if (last) { capWatch.ids = {}; if (S.game) renderGame(); }
+  });
+}
+function renderCapture() {
+  const g = S.games.find((x) => x.id === cap.gameId);
+  $('capGameName').textContent = g ? g.title : 'Pick a game';
+  $('typeChips').innerHTML = Object.keys(TYPES).filter((k) => k !== 'revisit').map((k) => `<button class="chip ${cap.type === k ? 'on' : ''}" data-t="${k}">${TYPES[k].e} ${TYPES[k].l}</button>`).join('');
+  $('tRevisit').classList.toggle('on', cap.revisit || cap.type === 'revisit');
+  $('tFav').classList.toggle('on', cap.fav);
+  $('tSpoil').classList.toggle('on', cap.spoiler);
+  $('atts').innerHTML = cap.files.map((f, i) => `<div class="att" style="background-image:url('${f.thumb || ''}')">${f.kind === 'video' ? '<span class="vid">CLIP</span>' : ''}
+    <button class="x" data-rm="${i}" aria-label="Remove">${icon('i-x')}</button><div class="bar" id="bar${i}"></div></div>`).join('');
+  $('atts').querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => { cap.files.splice(+b.dataset.rm, 1); renderCapture(); });
+  $('hint').classList.remove('err');
+  if (cap.files.length && !$('capText').value) $('hint').textContent = 'Say what this is and why it matters — funny, epic, a clue, a place to come back to.';
+}
+$('typeChips').onclick = (ev) => { const b = ev.target.closest('[data-t]'); if (!b) return; cap.type = cap.type === b.dataset.t ? '' : b.dataset.t; renderCapture(); };
+$('tRevisit').onclick = () => { cap.revisit = !(cap.revisit || cap.type === 'revisit'); if (!cap.revisit && cap.type === 'revisit') cap.type = ''; renderCapture(); };
+$('tFav').onclick = () => { cap.fav = !cap.fav; renderCapture(); };
+$('tSpoil').onclick = () => { cap.spoiler = !cap.spoiler; renderCapture(); };
+$('capCancel').onclick = () => closeSheet('capSheet');
+$('fab').onclick = () => S.games.length ? openCapture() : openGameSheet();
+$('capGame').onclick = () => pickGame();
+$('pickMedia').onclick = () => $('fileIn').click();
+$('pickCam').onclick = () => $('camIn').click();
+$('fileIn').onchange = () => { addFiles($('fileIn').files); $('fileIn').value = ''; };
+$('camIn').onchange = () => { addFiles($('camIn').files); $('camIn').value = ''; };
+
+function addFiles(list) {
+  Array.from(list || []).forEach((file) => {
+    if (!/^(image|video)\//.test(file.type)) return toast('Only photos and videos can be added.');
+    const item = { file, kind: /^video\//.test(file.type) ? 'video' : 'image', thumb: '' };
+    cap.files.push(item);
+    makeThumb(file, 360, 40000).then((t) => { item.thumb = t; renderCapture(); }).catch(() => {});
+  });
+  renderCapture();
+}
+
+function pickGame() {
+  $('pickList').innerHTML = S.games.map((g) => `<button class="gameRow" data-id="${esc(g.id)}"><div class="cv" style="${coverStyle(g)}"></div>
+    <div style="flex:1;min-width:0"><b style="display:block;font-weight:600">${esc(g.title)}</b><small style="color:var(--ink3)">${esc(STATUSES[g.status] || '')}</small></div>
+    ${g.id === cap.gameId ? icon('i-check', 'color:var(--amber)') : ''}</button>`).join('');
+  $('pickList').querySelectorAll('[data-id]').forEach((b) => b.onclick = () => { cap.gameId = b.dataset.id; renderCapture(); closeSheet('pickSheet'); });
+  openSheet('pickSheet');
+}
+$('pickNew').onclick = () => {
+  closeSheet('pickSheet');
+  setTimeout(() => { openGameSheet(); gs.afterCreate = (g) => { cap.gameId = g.id; renderCapture(); }; }, 250);
+};
+
+$('capSave').onclick = () => {
+  const raw = $('capText').value.trim();
+  const g = S.games.find((x) => x.id === cap.gameId);
+  if (!g) return pickGame();
+  const psnIds = Object.keys(psnRow.picked);
+  if (!raw && !cap.files.length && !psnIds.length) { $('hint').textContent = 'Say or type something first — or add a screenshot.'; $('hint').classList.add('err'); return; }
+  stopListening();
+  const note = { gameId: g.id, raw, type: cap.type === 'revisit' || cap.revisit ? 'revisit' : cap.type, favorite: cap.fav, spoiler: cap.spoiler,
+    clientId: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), createdAt: new Date().toISOString(),
+    // PS5 captures you unticked: keep them off this note (they stay in the timeline on their own).
+    declineIds: psnRow.items.map((m) => m.id).filter((id) => !psnRow.picked[id]) };
+  if (psnIds.length) note.mediaIds = psnIds.slice();
+  setCurrent(g.id);
+  if (!cap.files.length) return saveNote(note);
+  // With photos/videos: upload first (needs a connection), then save the note with them.
+  const btn = $('capSave'); const done = busy(btn, 'Uploading…');
+  $('capCancel').disabled = true;
+  uploadAll(g.id, cap.files).then((mediaIds) => { note.mediaIds = psnIds.concat(mediaIds); done(); $('capCancel').disabled = false; saveNote(note); })
+    .catch((e) => { done(); $('capCancel').disabled = false; $('hint').textContent = 'Upload failed: ' + errText(e) + ' Try again when you have signal.'; $('hint').classList.add('err'); });
+};
+
+function saveNote(note) {
+  closeSheet('capSheet');
+  buzz(20);
+  const temp = Object.assign(queuedEntry(note), { _queued: false, aiStatus: 'pending', id: note.clientId });
+  const viewing = S.game && S.game.id === note.gameId;
+  if (viewing) { S.entries.push(temp); S.tab = 'journal'; setTabs(); renderGameHead(); renderGame(); }
+  toast('Saved — organizing your note…');
+  api('addNote', note).then((r) => {
+    if (S.game && S.game.id === note.gameId) {
+      const i = S.entries.indexOf(temp);
+      if (i >= 0) S.entries[i] = r.entry; else S.entries.push(r.entry);
+      (note.mediaIds || []).forEach((id) => { if (S.media[id]) S.media[id].entryId = r.entry.id; });
+      // A PS5 capture that was sitting on its own is now part of this note.
+      S.entries = S.entries.filter((x) => x.kind !== 'capture' || (x.mediaIds || []).some((id) => (note.mediaIds || []).indexOf(id) < 0));
+      if ((r.entry.mediaIds || []).some((id) => !S.media[id]) || (note.declineIds || []).length) loadGame();
+      renderGameHead(); renderGame();
+    }
+    if (!(r.entry.mediaIds || []).length) watchCaptures(r.entry.id);
+    bumpCounts(note.gameId, r.entry);
+    toast(r.entry.aiStatus === 'failed' ? 'Saved (couldn’t tidy it — your words are kept).' : '“' + (r.entry.title || 'Note') + '” added to your journal');
+  }).catch((e) => {
+    if (isOffline(e) && !(note.mediaIds || []).length) {
+      const q = store.get('jmQueue', []); q.push(note); store.set('jmQueue', q);
+      Object.assign(temp, { _queued: true, aiStatus: '' });
+      if (viewing) renderGame();
+      toast('No signal — saved on your phone. It’ll sync later.');
+    } else {
+      S.entries = S.entries.filter((x) => x !== temp); if (viewing) renderGame();
+      toast(errText(e), 'Retry', () => saveNote(note), 7000);
+    }
+  });
+}
+function queuedEntry(q) {
+  return { id: q.clientId, clientId: q.clientId, gameId: q.gameId, createdAt: q.createdAt, type: q.type || 'thought', title: 'New note',
+    body: q.raw, raw: q.raw, tags: [], revisit: q.type === 'revisit', done: false, spoiler: q.spoiler, favorite: q.favorite, mediaIds: q.mediaIds || [], _queued: true };
+}
+function bumpCounts(gameId, entry) {
+  const g = S.games.find((x) => x.id === gameId); if (!g) return;
+  g.counts = g.counts || { notes: 0, revisit: 0, media: 0 };
+  g.counts.notes++; if (entry.revisit && !entry.done) g.counts.revisit++;
+  g.lastPlayedAt = new Date().toISOString();
+  store.set('jmGames', S.games);
+}
+
+// ---- Offline queue: send waiting notes when the connection is back ----
+let flushing = false;
+function flushQueue() {
+  if (flushing || DEMO) return;
+  const q = store.get('jmQueue', []);
+  if (!q.length || !navigator.onLine) return;
+  flushing = true;
+  let sent = 0;
+  q.reduce((p, note) => p.then(() => api('addNote', note).then(() => {
+    sent++; store.set('jmQueue', store.get('jmQueue', []).filter((x) => x.clientId !== note.clientId));
+  })), Promise.resolve()).catch(() => {}).then(() => {
+    flushing = false;
+    if (sent) { toast(sent + ' saved note' + (sent > 1 ? 's' : '') + ' synced'); S.game ? loadGame() : loadLibrary(); }
+  });
+}
+window.addEventListener('online', flushQueue);
+
+// ====================================================================================
+// Voice (Android Chrome speech recognition; free, on the phone)
+// ====================================================================================
+const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let listening = null;
+function stopListening() { if (listening) try { listening.stop(); } catch (e) {} }
+function listen(field, btn, hintEl, onDone) {
+  if (listening) { stopListening(); return; }
+  const say = (m, err) => { if (hintEl) { hintEl.textContent = m; hintEl.classList.toggle('err', !!err); } else if (err) toast(m); };
+  if (!Recognition) { say('This phone can’t listen here. Tap the box and use your keyboard’s mic.', true); field.focus(); return; }
+  const rec = new Recognition();
+  rec.lang = navigator.language || 'en-US';
+  rec.interimResults = true;
+  rec.continuous = true;
+  const before = field.value.trim();
+  let finalText = '';
+  const setIcon = (id) => { const u = btn.querySelector('use'); if (u) u.setAttribute('href', '#' + id); };
+  rec.onstart = () => { listening = rec; btn.classList.add('on'); setIcon('i-stop'); say('Listening… tap the red button when you’re done.'); buzz(10); };
+  rec.onend = () => {
+    listening = null; btn.classList.remove('on'); setIcon('i-mic');
+    if (field.value.trim() !== before) { say('Got it. Add a screenshot or save it.'); onDone && onDone(); }
+  };
+  rec.onerror = (e) => {
+    if (e.error === 'no-speech' || e.error === 'aborted') return say('Didn’t catch anything. Tap the mic and try again.');
+    say(e.error === 'not-allowed' || e.error === 'service-not-allowed'
+      ? 'The mic is blocked for this app. Allow it in your phone settings, or use the keyboard mic.' : 'Didn’t catch that. Try again.', true);
+  };
+  rec.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
+    }
+    let said = (finalText + interim).replace(/\s+/g, ' ').trim();
+    if (said && !before) said = said.charAt(0).toUpperCase() + said.slice(1);
+    field.value = (before ? before + ' ' : '') + said;
+  };
+  try { rec.start(); } catch (err) { say('Couldn’t start the mic. Use the keyboard’s mic instead.', true); }
+}
+$('mic').onclick = () => listen($('capText'), $('mic'), $('hint'));
+
+// ====================================================================================
+// Media: thumbnails + uploads straight to your Google Drive
+// ====================================================================================
+function makeThumb(file, maxSide, maxChars) {
+  const draw = (src, w, h) => {
+    const scale = Math.min(1, maxSide / Math.max(w, h));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * scale)); c.height = Math.max(1, Math.round(h * scale));
+    c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+    let q = 0.78, url = c.toDataURL('image/jpeg', q);
+    while (url.length > maxChars && q > 0.3) { q -= 0.1; url = c.toDataURL('image/jpeg', q); }
+    return url;
+  };
+  const objUrl = URL.createObjectURL(file);
+  const cleanup = (v) => { URL.revokeObjectURL(objUrl); return v; };
+  if (/^video\//.test(file.type)) {
+    return new Promise((resolve, reject) => {
+      const v = document.createElement('video');
+      v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = objUrl;
+      const fail = () => reject(new Error('no frame'));
+      v.onloadedmetadata = () => { v.currentTime = Math.min(1, (v.duration || 2) / 3); };
+      v.onseeked = () => { try { resolve(draw(v, v.videoWidth, v.videoHeight)); } catch (e) { fail(); } };
+      v.onerror = fail;
+      setTimeout(fail, 8000);
+    }).then(cleanup, (e) => { cleanup(); throw e; });
+  }
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => { try { resolve(draw(img, img.naturalWidth, img.naturalHeight)); } catch (e) { reject(e); } };
+    img.onerror = reject;
+    img.src = objUrl;
+  }).then(cleanup, (e) => { cleanup(); throw e; });
+}
+
+function uploadAll(gameId, items) {
+  const ids = [];
+  return items.reduce((p, item, i) => p.then(() => uploadOne(gameId, item, (pct) => { const b = $('bar' + i); if (b) b.style.width = pct + '%'; })
+    .then((m) => { ids.push(m.id); S.media[m.id] = m; })), Promise.resolve()).then(() => ids);
+}
+
+function uploadOne(gameId, item, onPct) {
+  const f = item.file;
+  if (DEMO) { onPct(100); return api('addMedia', { gameId, fileId: 'demo', thumb: item.thumb, kind: item.kind }).then((r) => r.media); }
+  return api('startUpload', { gameId, name: f.name, mime: f.type, size: f.size })
+    .then((r) => putToDrive(r.uploadUrl, f, onPct))
+    .catch((err) => {
+      // Fallback: small files go through the backend instead of straight to Drive.
+      if (f.size > 20 * 1024 * 1024) throw err;
+      onPct(30);
+      return readBase64(f).then((data) => api('uploadInline', { gameId, name: f.name, mime: f.type, data })).then((r) => r.fileId);
+    })
+    .then((fileId) => { onPct(100); return api('addMedia', { gameId, fileId, thumb: item.thumb }); })
+    .then((r) => r.media);
+}
+
+function putToDrive(url, file, onPct) {
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open('PUT', url);
+    x.upload.onprogress = (e) => e.lengthComputable && onPct(Math.round(e.loaded / e.total * 95));
+    x.onload = () => {
+      if (x.status === 200 || x.status === 201) { try { resolve(JSON.parse(x.responseText).id); } catch (e) { reject(new Error('Drive upload response')); } }
+      else reject(new Error('Drive upload ' + x.status));
+    };
+    x.onerror = () => reject(new Error('NetworkError during upload'));
+    x.send(file);
+  });
+}
+
+function readBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(',')[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+// ====================================================================================
+// Shared in from another app (Gallery, PlayStation / Xbox app, screenshots…)
+// ====================================================================================
+function takeShare() {
+  const q = new URLSearchParams(location.search);
+  const text = [q.get('title'), q.get('text'), q.get('url')].filter(Boolean).join(' — ');
+  const mode = q.get('capture');
+  if (q.has('shared') || text || mode) history.replaceState(null, '', location.pathname);
+  if (q.has('shared') && 'caches' in window) {
+    return caches.open('jm-share').then((c) => c.keys().then((keys) => Promise.all(keys.map((k) => c.match(k).then((res) => res.blob().then((b) => {
+      c.delete(k);
+      const name = decodeURIComponent(res.headers.get('x-name') || 'shared');
+      return new File([b], name, { type: b.type || res.headers.get('content-type') || '' });
+    })))))).then((files) => {
+      const meta = files.filter((f) => f.name === '__text__');
+      const media = files.filter((f) => f.name !== '__text__');
+      return (meta[0] ? meta[0].text() : Promise.resolve('')).then((t) => {
+        openCapture({ text: t || text });
+        addFiles(media);
+        toast(media.length ? 'Got it — add a note about why it matters.' : 'Shared in.');
+      });
+    }).catch(() => openCapture({ text }));
+  }
+  if (text) return openCapture({ text });
+  if (mode === 'note') return setTimeout(() => { openCapture(); $('mic').click(); }, 300);
+  if (mode === 'media') return setTimeout(() => { openCapture(); $('fileIn').click(); }, 300);
+}
+
+// ====================================================================================
+// Demo backend (used until the real web app URL is pasted above)
+// ====================================================================================
+const Demo = {
+  db() { return store.get('jmDemo', { games: [], entries: [], media: [], pages: [] }); },
+  save(d) { store.set('jmDemo', d); },
+  id() { return Math.random().toString(36).slice(2, 12); },
+  call(action, p) {
+    const d = this.db(), now = new Date().toISOString();
+    const wait = (v, ms) => new Promise((r) => setTimeout(() => r(Object.assign({ ok: true }, v)), ms || 250));
+    const byGame = (arr) => arr.filter((x) => x.gameId === p.gameId);
+    const notes = (es) => es.map((e) => '• ' + (e.title ? e.title + ': ' : '') + e.body).join('\n');
+    switch (action) {
+      case 'library': {
+        const games = d.games.map((g) => Object.assign({}, g, { counts: {
+          notes: d.entries.filter((e) => e.gameId === g.id).length,
+          revisit: d.entries.filter((e) => e.gameId === g.id && e.revisit && !e.done).length } }))
+          .sort((a, b) => String(b.lastPlayedAt).localeCompare(String(a.lastPlayedAt)));
+        return wait({ games, psn: { connected: true, status: 'ok', demo: true, lastSync: d.psnLast || null } });
+      }
+      // Pretend PS5: a fake screenshot "arrives" ~20 s after a note is saved without one.
+      case 'syncCaptures': {
+        if (d.fakeAfter && Date.now() >= d.fakeAfter.at) {
+          const g = d.games.find((x) => x.id === d.fakeAfter.gameId);
+          d.media.push(this.fakeCap(g, new Date(d.fakeAfter.at).toISOString()));
+          d.fakeAfter = null;
+        }
+        const attached = this.assign(d); d.psnLast = Date.now(); this.save(d);
+        return wait({ connected: true, imported: attached.length, attached }, 600);
+      }
+      case 'recentCaptures': {
+        const since = Date.now() - 45 * 60000;
+        if (!d.media.some((m) => m.source === 'psn' && Date.now() - new Date(m.takenAt) < 10 * 60000)) {
+          const g = d.games.find((x) => x.id === (S.currentGameId || (d.games[0] || {}).id)) || d.games[0];
+          d.media.push(this.fakeCap(g, new Date(Date.now() - 75000).toISOString()));
+        }
+        d.psnLast = Date.now(); this.save(d);
+        const caps = d.media.filter((m) => m.source === 'psn' && new Date(m.takenAt) >= since && (!m.entryId || (d.entries.find((e) => e.id === m.entryId) || {}).kind === 'capture'))
+          .sort((a, b) => String(b.takenAt).localeCompare(String(a.takenAt)));
+        return wait({ captures: caps, psn: { connected: true, status: 'ok', demo: true, lastSync: d.psnLast } }, 700);
+      }
+      case 'game': return wait({ game: d.games.find((g) => g.id === p.id), entries: d.entries.filter((e) => e.gameId === p.id),
+        media: d.media.filter((m) => m.gameId === p.id), pages: d.pages.filter((x) => x.gameId === p.id) });
+      case 'addGame': { const g = { id: this.id(), title: p.title, platform: p.platform, status: 'playing', cover: p.cover, about: p.about, createdAt: now, updatedAt: now, lastPlayedAt: now };
+        d.games.push(g); this.save(d); return wait({ game: g }); }
+      case 'updateGame': { const g = d.games.find((x) => x.id === p.id); Object.assign(g, p.patch, { updatedAt: now }); this.save(d); return wait({ game: g }); }
+      case 'deleteGame': ['entries', 'media', 'pages'].forEach((k) => d[k] = d[k].filter((x) => x.gameId !== p.id)); d.games = d.games.filter((g) => g.id !== p.id); this.save(d); return wait({});
+      case 'addNote': {
+        const raw = p.raw || '';
+        const lower = raw.toLowerCase();
+        const type = p.type || (/lol|funny|haha|laugh/.test(lower) ? 'funny' : /come back|later|locked|can't reach/.test(lower) ? 'revisit' : /theory|bet|predict|think .* (is|will)/.test(lower) ? 'theory' : /beat|finally|boss/.test(lower) ? 'milestone' : 'thought');
+        const e = { id: this.id(), gameId: p.gameId, createdAt: p.createdAt || now, kind: (p.mediaIds || []).length ? 'media' : 'note', type,
+          title: (raw.split(/[.!?]/)[0] || 'New capture').split(/\s+/).slice(0, 5).join(' ').replace(/^./, (c) => c.toUpperCase()),
+          body: raw ? raw.replace(/^./, (c) => c.toUpperCase()) : 'A capture worth keeping.', raw, tags: [], revisit: type === 'revisit',
+          revisitWhat: type === 'revisit' ? raw.slice(0, 60) : '', done: false, spoiler: !!p.spoiler, favorite: !!p.favorite, mood: '',
+          mediaIds: (p.mediaIds || []).slice(), aiStatus: 'done' };
+        d.entries.push(e);
+        (p.mediaIds || []).forEach((id) => { // a picked PS5 capture leaves its own capture entry
+          const m = d.media.find((x) => x.id === id); if (!m) return;
+          const old = d.entries.find((x) => x.id === m.entryId && x !== e);
+          if (old) { old.mediaIds = old.mediaIds.filter((x) => x !== id); if (!old.mediaIds.length && old.kind === 'capture') d.entries = d.entries.filter((x) => x !== old); }
+          m.entryId = e.id; m.gameId = e.gameId;
+        });
+        (p.declineIds || []).forEach((id) => { const m = d.media.find((x) => x.id === id); if (m && !m.entryId) this.capEntry(d, m); });
+        this.assign(d);
+        if (!e.mediaIds.length) d.fakeAfter = { at: Date.now() + 20000, gameId: p.gameId };
+        if (e.mediaIds.length && e.kind === 'note') e.kind = 'media';
+        const g = d.games.find((x) => x.id === p.gameId); if (g) g.lastPlayedAt = now; this.save(d);
+        return wait({ entry: e }, 900);
+      }
+      case 'updateEntry': { const e = d.entries.find((x) => x.id === p.id); Object.assign(e, p.patch); this.save(d); return wait({ entry: e }); }
+      case 'reorganize': return wait({ entry: d.entries.find((x) => x.id === p.id) }, 700);
+      case 'deleteEntry': d.entries = d.entries.filter((x) => x.id !== p.id); this.save(d); return wait({});
+      case 'addMedia': { const m = { id: this.id(), gameId: p.gameId, fileId: 'demo', kind: p.kind || 'image', thumb: p.thumb, createdAt: now }; d.media.push(m); this.save(d); return wait({ media: m }, 500); }
+      case 'mediaView': return wait({});
+      case 'writePage': case 'recap': case 'chronicle': {
+        const es = action === 'writePage' ? d.entries.filter((e) => (p.entryIds || []).includes(e.id)) : byGame(d.entries);
+        es.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+        const kind = action === 'writePage' ? 'session' : action;
+        const g = d.games.find((x) => x.id === p.gameId) || {};
+        const page = { id: this.id(), gameId: p.gameId, createdAt: now, kind, fromAt: es[0] && es[0].createdAt, toAt: es[es.length - 1] && es[es.length - 1].createdAt,
+          title: kind === 'recap' ? 'Previously on ' + g.title : kind === 'chronicle' ? 'The Journey Through ' + g.title : 'Into the Unknown',
+          body: '(Demo mode — once your Google backend is connected, Claude writes this page in your voice.)\n\n' + notes(es) };
+        d.pages = d.pages.filter((x) => !(x.gameId === p.gameId && x.kind === kind && (kind !== 'session' || x.fromAt === page.fromAt)));
+        d.pages.push(page); this.save(d); return wait({ page }, 1200);
+      }
+      case 'ask': return wait({ answer: '(Demo mode) Once connected, Journeyman answers from your notes. Your question: “' + p.question + '”', entryIds: [] }, 800);
+      case 'deletePage': d.pages = d.pages.filter((x) => x.id !== p.id); this.save(d); return wait({});
+    }
+    return Promise.reject(new Error('Unknown action'));
+  },
+  // Same rule as the real backend: a capture joins the nearest note from 8 min before to 5 min after it.
+  assign(d) {
+    const changed = {};
+    d.media.filter((m) => m.source === 'psn' && !m.entryId).forEach((m) => {
+      const t = new Date(m.takenAt).getTime();
+      let best = null, gap = Infinity;
+      d.entries.forEach((e) => {
+        if (e.kind === 'capture') return;
+        const c = new Date(e.createdAt).getTime();
+        if (t >= c - 8 * 60000 && t <= c + 5 * 60000 && Math.abs(t - c) < gap) { best = e; gap = Math.abs(t - c); }
+      });
+      if (best) { best.mediaIds = (best.mediaIds || []).concat(m.id); if (best.kind === 'note') best.kind = 'media'; m.entryId = best.id; m.gameId = best.gameId; changed[best.id] = 1; }
+      else if (Date.now() > t + 8 * 60000) changed[this.capEntry(d, m).id] = 1;
+    });
+    return Object.keys(changed);
+  },
+  capEntry(d, m) {
+    const e = { id: this.id(), gameId: m.gameId, createdAt: m.takenAt, kind: 'capture', type: '', title: m.kind === 'video' ? 'Clip' : 'Screenshot',
+      body: '', raw: '', tags: [], mediaIds: [m.id], aiStatus: 'none', updatedAt: m.takenAt };
+    d.entries.push(e); m.entryId = e.id; return e;
+  },
+  fakeCap(g, takenAt) {
+    const c = document.createElement('canvas'); c.width = 320; c.height = 180;
+    const x = c.getContext('2d'), hue = Math.floor(Math.random() * 360);
+    const gr = x.createLinearGradient(0, 0, 320, 180);
+    gr.addColorStop(0, `hsl(${hue},55%,32%)`); gr.addColorStop(1, `hsl(${(hue + 60) % 360},60%,14%)`);
+    x.fillStyle = gr; x.fillRect(0, 0, 320, 180);
+    x.fillStyle = 'rgba(255,255,255,.9)'; x.font = 'bold 18px Inter, sans-serif'; x.fillText((g && g.title) || 'PS5', 16, 150);
+    x.font = '12px Inter, sans-serif'; x.fillStyle = 'rgba(255,255,255,.6)'; x.fillText('PS5 screenshot (demo)', 16, 168);
+    return { id: this.id(), gameId: g && g.id, entryId: '', fileId: 'demo', kind: 'image', thumb: c.toDataURL('image/jpeg', 0.8),
+      createdAt: new Date().toISOString(), source: 'psn', takenAt };
+  },
+};
+
+// ====================================================================================
+// Start
+// ====================================================================================
+if (DEMO) $('demoBar').hidden = false;
+if (!DEMO && !KEY) $('libBody').innerHTML = `<div class="empty"><h2>Almost there.</h2><p>Open your personal Journeyman link (the one with <b>#k=</b> in it) once on this phone and it’ll remember you.</p></div>`;
+else { renderLibrary(); loadLibrary().then(takeShare); flushQueue(); }
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
