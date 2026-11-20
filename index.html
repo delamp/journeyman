@@ -984,12 +984,14 @@ $('gMore').onclick = () => {
     ${g.status !== 'finished' ? `<button data-m="finish">${icon('i-flag')}I finished it! 🏆</button>` : ''}
     ${g.status !== 'paused' && g.status !== 'finished' ? `<button data-m="pause">${icon('i-rewind')}Put on hold</button>` : ''}
     ${g.status !== 'playing' ? `<button data-m="play">${icon('i-play')}Playing again</button>` : ''}
+    ${S.games.length > 1 ? `<button data-m="merge">${icon('i-book')}Merge into another journal</button>` : ''}
     <button data-m="delete" class="danger">${icon('i-trash')}Delete this journal</button>`;
   openSheet('menuSheet');
   $('menuList').querySelectorAll('[data-m]').forEach((b) => b.onclick = () => {
     closeSheet('menuSheet');
     const m = b.dataset.m;
     if (m === 'edit') return setTimeout(() => openGameSheet(g), 250);
+    if (m === 'merge') return setTimeout(() => mergeJournal(g), 250);
     if (m === 'delete') {
       if (!confirm(`Delete the whole "${g.title}" journal, with its photos and clips? This can't be undone.`)) return;
       api('deleteGame', { id: g.id }).then(() => { S.games = S.games.filter((x) => x.id !== g.id); store.set('jmGames', S.games); showLibrary(); toast('Journal deleted'); })
@@ -1003,6 +1005,23 @@ $('gMore').onclick = () => {
     }).catch((e) => toast(errText(e)));
   });
 };
+// Two journals for one game (e.g. PS5 sync started "Grand Theft Auto VI" next to your "GTA VI"): fold this one in.
+function mergeJournal(g) {
+  const others = S.games.filter((x) => x.id !== g.id);
+  $('menuList').innerHTML = `<div class="hint" style="padding:4px 4px 10px">Move everything from <b>${esc(g.title)}</b> into…</div>` +
+    others.map((x) => `<button data-into="${esc(x.id)}">${icon('i-book')}${esc(x.title)}</button>`).join('');
+  openSheet('menuSheet');
+  $('menuList').querySelectorAll('[data-into]').forEach((b) => b.onclick = () => {
+    const into = others.find((x) => x.id === b.dataset.into);
+    closeSheet('menuSheet');
+    if (!confirm(`Move all notes, photos and clips from "${g.title}" into "${into.title}"? "${g.title}" goes away.`)) return;
+    api('mergeGame', { id: g.id, intoId: into.id }).then((r) => {
+      S.games = S.games.filter((x) => x.id !== g.id); updateGameInList(r.game);
+      toast('Merged into ' + into.title);
+      setTimeout(() => openGame(into.id), 300);
+    }).catch((e) => toast(errText(e)));
+  });
+}
 function updateGameInList(g) {
   const i = S.games.findIndex((x) => x.id === g.id);
   if (i >= 0) S.games[i] = Object.assign({}, S.games[i], g); else S.games.unshift(g);
@@ -1469,6 +1488,8 @@ const Demo = {
       case 'addGame': { const g = { id: this.id(), title: p.title, platform: p.platform, status: 'playing', cover: p.cover, about: p.about, createdAt: now, updatedAt: now, lastPlayedAt: now };
         d.games.push(g); this.save(d); return wait({ game: g }); }
       case 'updateGame': { const g = d.games.find((x) => x.id === p.id); Object.assign(g, p.patch, { updatedAt: now }); this.save(d); return wait({ game: g }); }
+      case 'mergeGame': { ['entries', 'media', 'pages'].forEach((k) => d[k].forEach((x) => { if (x.gameId === p.id) x.gameId = p.intoId; }));
+        d.games = d.games.filter((g) => g.id !== p.id); this.save(d); return wait({ game: d.games.find((g) => g.id === p.intoId) }); }
       case 'deleteGame': ['entries', 'media', 'pages'].forEach((k) => d[k] = d[k].filter((x) => x.gameId !== p.id)); d.games = d.games.filter((g) => g.id !== p.id); this.save(d); return wait({});
       case 'addNote': {
         const raw = p.raw || '';
