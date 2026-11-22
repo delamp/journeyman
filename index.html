@@ -379,7 +379,8 @@
 // Until then the app runs in demo mode (everything stays on this phone).
 // ====================================================================================
 const API = 'https://script.google.com/macros/s/AKfycby4vwRc6zT1zSE1JpxOLElvJP79D4-_4PYfcL0UTl_1QmFMa9sMi09UI0YHTXDjkra6cA/exec';
-const DEMO = !/^https:\/\/script\.google\.com\//.test(API);
+const DEMO = !/^https:\/\/script\.google\.com\//.test(API)
+  || (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /[?&]demo\b/.test(location.search)); // local testing only
 
 const TYPES = {
   thought:   { e: '💭', l: 'Thought' },
@@ -493,7 +494,7 @@ function closeSheet(id, fromPop) {
   $(id).classList.remove('show');
   if (!openSheets.length) $('scrim').classList.remove('show');
   if (!fromPop) goBack();
-  if (id === 'capSheet') stopListening();
+  if (id === 'capSheet' || id === 'readSheet') stopListening();
 }
 $('scrim').onclick = () => openSheets.length && closeSheet(openSheets[openSheets.length - 1]);
 window.addEventListener('popstate', () => {
@@ -683,7 +684,8 @@ function renderJournal(body) {
     const page = S.pages.find((p) => p.kind === 'session' && p.fromAt === s.items[0].createdAt);
     const sessNo = sessions.length - i;
     html += `<div class="session"><div class="sHead"><div><b>Session ${sessNo}</b><small>${esc(d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${s.items.length} note${s.items.length > 1 ? 's' : ''}${mins > 4 ? ' · ' + (mins >= 60 ? Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm' : mins + 'm') : ''}</small></div>
-      ${page ? '' : `<button class="btn small" data-write="${i}">${icon('i-feather', 'width:16px;height:16px')}Write page</button>`}</div>`;
+      <div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn small" data-movesess="${i}" aria-label="Move this session to another game">Move</button>
+      ${page ? '' : `<button class="btn small" data-write="${i}">${icon('i-feather', 'width:16px;height:16px')}Write page</button>`}</div></div>`;
     if (page && !S.search && S.filter === 'all') html += pageCardHtml(page);
     items.slice().reverse().forEach((e) => html += entryHtml(e));
     html += '</div>';
@@ -694,6 +696,10 @@ function renderJournal(body) {
   q.oninput = () => { S.search = q.value; const pos = q.selectionStart; renderJournal(body); const n = $('q'); n.focus(); n.setSelectionRange(pos, pos); };
   body.querySelectorAll('[data-f]').forEach((b) => b.onclick = () => { S.filter = b.dataset.f; renderJournal(body); });
   body.querySelectorAll('[data-write]').forEach((b) => b.onclick = () => writePage(sessions[+b.dataset.write], b));
+  body.querySelectorAll('[data-movesess]').forEach((b) => b.onclick = () => {
+    const s = sessions[+b.dataset.movesess];
+    moveEntries(s.items, `this session (${s.items.length} ${s.items.length === 1 ? 'entry' : 'entries'})`);
+  });
   wireEntries(body);
 }
 
@@ -810,6 +816,7 @@ function openEntry(e) {
     <div class="saveBar">
       <button class="btn" id="eEdit">${icon('i-edit')}Edit</button>
       ${e._queued ? '' : `<button class="btn" id="eRedo">${icon('i-refresh')}Re-tidy</button>`}
+      ${e._queued || S.games.length < 1 ? '' : `<button class="btn" id="eMove" style="flex:0 0 auto">Move</button>`}
       <button class="btn" id="eDel" style="color:var(--red);flex:0 0 52px" aria-label="Delete">${icon('i-trash')}</button>
     </div>`;
   openSheet('readSheet');
@@ -822,22 +829,78 @@ function openEntry(e) {
   $('eSpo').onclick = () => { patchEntry(e, { spoiler: !e.spoiler }); closeSheet('readSheet'); };
   $('eEdit').onclick = () => editEntry(e);
   if ($('eRedo')) $('eRedo').onclick = () => { closeSheet('readSheet'); retidy(e); };
+  if ($('eMove')) $('eMove').onclick = () => { closeSheet('readSheet'); setTimeout(() => moveEntries([e], '“' + (e.title || 'this note') + '”'), 250); };
   $('eDel').onclick = () => deleteEntry(e);
 }
 
+// Edit a saved note: its words (the tidy version and what you actually said), come-back item, tags, and its photos/clips.
 function editEntry(e) {
+  const media = () => (e.mediaIds || []).map((id) => S.media[id]).filter(Boolean);
   $('readBody').innerHTML = `<div class="sheetHead"><h3>Edit note</h3></div>
+    <div class="label" style="margin-top:4px">Title</div>
     <input class="field" id="edTitle" value="${esc(e.title)}" placeholder="Title">
-    <textarea class="note" id="edBody" style="margin-top:10px;min-height:180px">${esc(e.body)}</textarea>
-    <input class="field" id="edRev" style="margin-top:10px" value="${esc(e.revisitWhat)}" placeholder="Come back for… (optional)">
+    <div class="label">Journal entry</div>
+    <textarea class="note" id="edBody" style="min-height:150px">${esc(e.body)}</textarea>
+    <div class="label">What you said <span style="text-transform:none;letter-spacing:0;font-weight:500">(fix a word, add more, or re-record)</span></div>
+    <textarea class="note" id="edRaw" style="min-height:90px">${esc(e.raw || '')}</textarea>
+    <div class="micRow" style="margin-top:8px">
+      <button class="mic" id="edMic" style="width:50px;height:50px;box-shadow:none" aria-label="Add by voice">${icon('i-mic', 'width:22px;height:22px')}</button>
+      <button class="btn small" id="edRetidy">${icon('i-refresh', 'width:16px;height:16px')}Re-tidy from what I said</button>
+    </div>
+    <div class="hint" id="edHint" style="margin-top:6px"></div>
+    <div class="label">Come back for <span style="text-transform:none;letter-spacing:0;font-weight:500">(optional)</span></div>
+    <input class="field" id="edRev" value="${esc(e.revisitWhat)}" placeholder="e.g. Chest under the bridge after double jump">
+    <div class="label">Tags <span style="text-transform:none;letter-spacing:0;font-weight:500">(comma separated)</span></div>
+    <input class="field" id="edTags" value="${esc((e.tags || []).join(', '))}" placeholder="boss, place, character">
+    <div class="label">Photos & clips</div>
+    <div class="attachments" id="edAtts"></div>
+    <button class="attachBtn" id="edAdd" style="width:100%;margin-top:8px">${icon('i-photo')}Add screenshot / clip</button>
+    <input type="file" id="edIn" accept="image/*,video/*" multiple hidden>
     <div class="saveBar"><button class="btn" id="edCancel">Cancel</button><button class="btn primary" id="edSave">Save</button></div>`;
-  $('edCancel').onclick = () => closeSheet('readSheet');
-  $('edSave').onclick = () => {
-    const patch = { title: $('edTitle').value.trim(), body: $('edBody').value.trim(), revisitWhat: $('edRev').value.trim() };
-    if (patch.revisitWhat && !e.revisit) patch.revisit = true;
-    patchEntry(e, patch, 'Saved');
-    closeSheet('readSheet');
+  const drawAtts = () => {
+    $('edAtts').innerHTML = media().map((m) => `<div class="att" style="background-image:url('${m.thumb || ''}')">${m.kind === 'video' ? '<span class="vid">CLIP</span>' : ''}
+      <button class="x" data-rm="${esc(m.id)}" aria-label="Remove">${icon('i-x')}</button></div>`).join('') || '<div class="hint">None yet.</div>';
+    $('edAtts').querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => {
+      const m = S.media[b.dataset.rm];
+      const msg = m.source === 'psn' ? 'Take this PS5 capture off the note? It stays in your timeline on its own.' : 'Remove this photo/clip? It goes to your Drive trash.';
+      if (!confirm(msg)) return;
+      api('detachMedia', { id: e.id, mediaId: m.id }).then((r) => {
+        if (r.entry) Object.assign(e, r.entry);
+        if (r.capture) S.entries.push(r.capture);
+        if (m.source !== 'psn') delete S.media[m.id];
+        drawAtts(); renderGame();
+      }).catch((err) => toast(errText(err)));
+    });
   };
+  drawAtts();
+  const hint = (t, err) => { $('edHint').textContent = t; $('edHint').classList.toggle('err', !!err); };
+  $('edMic').onclick = () => listen($('edRaw'), $('edMic'), $('edHint'));
+  $('edAdd').onclick = () => $('edIn').click();
+  $('edIn').onchange = () => {
+    const files = Array.from($('edIn').files || []).filter((f) => /^(image|video)\//.test(f.type)); $('edIn').value = '';
+    if (!files.length) return;
+    const done = busy($('edAdd'), 'Uploading…');
+    Promise.all(files.map((file) => makeThumb(file, 360, 40000).catch(() => '').then((thumb) => ({ file, kind: /^video\//.test(file.type) ? 'video' : 'image', thumb }))))
+      .then((items) => uploadAll(e.gameId, items))
+      .then((ids) => api('attachMedia', { id: e.id, mediaIds: ids }))
+      .then((r) => { Object.assign(e, r.entry); drawAtts(); renderGame(); toast('Added'); })
+      .catch((err) => toast('Upload failed: ' + errText(err))).then(done);
+  };
+  const fields = () => {
+    const patch = { title: $('edTitle').value.trim(), body: $('edBody').value.trim(), raw: $('edRaw').value.trim(),
+      revisitWhat: $('edRev').value.trim(), tags: $('edTags').value.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean).slice(0, 8) };
+    if (patch.revisitWhat && !e.revisit) patch.revisit = true;
+    return patch;
+  };
+  $('edRetidy').onclick = () => {
+    const raw = $('edRaw').value.trim();
+    if (!raw) return hint('Say or type something first.', true);
+    stopListening();
+    closeSheet('readSheet');
+    e.raw = raw; retidy(e, raw);
+  };
+  $('edCancel').onclick = () => { stopListening(); closeSheet('readSheet'); };
+  $('edSave').onclick = () => { stopListening(); patchEntry(e, fields(), 'Saved'); closeSheet('readSheet'); };
 }
 
 function patchEntry(e, patch, msg) {
@@ -848,9 +911,9 @@ function patchEntry(e, patch, msg) {
     .catch((err) => { Object.assign(e, before); renderGameHead(); renderGame(); toast(errText(err)); });
 }
 
-function retidy(e) {
+function retidy(e, raw) {
   e.aiStatus = 'pending'; renderGame();
-  api('reorganize', { id: e.id }).then((r) => { Object.assign(e, r.entry); renderGameHead(); renderGame(); toast('Re-tidied'); })
+  api('reorganize', raw ? { id: e.id, raw } : { id: e.id }).then((r) => { Object.assign(e, r.entry); renderGameHead(); renderGame(); toast('Re-tidied'); })
     .catch((err) => { e.aiStatus = 'failed'; renderGame(); toast(errText(err)); });
 }
 
@@ -880,7 +943,9 @@ function openMedia(mediaId, e) {
   if (e.kind === 'capture') {
     $('readBody').querySelector('.reader').innerHTML = '';
     $('readBody').querySelector('.saveBar').insertAdjacentHTML('afterbegin', `<button class="btn primary" id="mvTalk">${icon('i-mic')}Talk about it</button>`);
+    $('readBody').querySelector('.saveBar').insertAdjacentHTML('beforeend', `<button class="btn" id="mvMove" style="flex:0 0 auto">Move</button>`);
     $('mvTalk').onclick = () => { closeSheet('readSheet'); setTimeout(() => talkAbout(e), 250); };
+    $('mvMove').onclick = () => { closeSheet('readSheet'); setTimeout(() => moveEntries([e], 'this capture'), 250); };
   }
   if (!m.fileId) { // a PS5 clip too big to copy into Drive
     $('mvDrive').remove(); if ($('mvPlay')) $('mvPlay').remove();
@@ -1005,21 +1070,45 @@ $('gMore').onclick = () => {
     }).catch((e) => toast(errText(e)));
   });
 };
+/** "Which game?" list (in the menu sheet), every game except one. allowNew adds "New game…". */
+function chooseGame(heading, exceptId, allowNew, done) {
+  const others = S.games.filter((x) => x.id !== exceptId);
+  $('menuList').innerHTML = `<div class="hint" style="padding:4px 4px 10px">${heading}</div>` +
+    others.map((x) => `<button data-into="${esc(x.id)}">${icon('i-book')}${esc(x.title)}</button>`).join('') +
+    (allowNew ? `<button data-into="__new">${icon('i-plus')}New game…</button>` : '');
+  if (openSheets.indexOf('menuSheet') < 0) openSheet('menuSheet');
+  $('menuList').querySelectorAll('[data-into]').forEach((b) => b.onclick = () => {
+    closeSheet('menuSheet');
+    if (b.dataset.into !== '__new') return done(others.find((x) => x.id === b.dataset.into));
+    setTimeout(() => { openGameSheet(); gs.afterCreate = (g) => done(g); }, 250);
+  });
+}
+
 // Two journals for one game (e.g. PS5 sync started "Grand Theft Auto VI" next to your "GTA VI"): fold this one in.
 function mergeJournal(g) {
-  const others = S.games.filter((x) => x.id !== g.id);
-  $('menuList').innerHTML = `<div class="hint" style="padding:4px 4px 10px">Move everything from <b>${esc(g.title)}</b> into…</div>` +
-    others.map((x) => `<button data-into="${esc(x.id)}">${icon('i-book')}${esc(x.title)}</button>`).join('');
-  openSheet('menuSheet');
-  $('menuList').querySelectorAll('[data-into]').forEach((b) => b.onclick = () => {
-    const into = others.find((x) => x.id === b.dataset.into);
-    closeSheet('menuSheet');
+  chooseGame(`Move everything from <b>${esc(g.title)}</b> into…`, g.id, false, (into) => {
     if (!confirm(`Move all notes, photos and clips from "${g.title}" into "${into.title}"? "${g.title}" goes away.`)) return;
     api('mergeGame', { id: g.id, intoId: into.id }).then((r) => {
       S.games = S.games.filter((x) => x.id !== g.id); updateGameInList(r.game);
       toast('Merged into ' + into.title);
       setTimeout(() => openGame(into.id), 300);
     }).catch((e) => toast(errText(e)));
+  });
+}
+
+/** Moves notes (one note, or a whole session) to another game's journal. */
+function moveEntries(entries, label) {
+  entries = entries.filter((e) => !e._queued);
+  if (!entries.length) return toast('Wait for those notes to sync first.');
+  chooseGame(`Move ${esc(label)} to…`, S.game.id, true, (into) => {
+    const ids = entries.map((e) => e.id);
+    S.entries = S.entries.filter((e) => ids.indexOf(e.id) < 0); renderGameHead(); renderGame();
+    api('moveEntries', { ids, intoId: into.id }).then((r) => {
+      updateGameInList(r.game);
+      const n = r.moved || ids.length;
+      toast(`Moved ${n} ${n === 1 ? 'entry' : 'entries'} to ${into.title}`, 'Open', () => openGame(into.id), 6000);
+      loadGame();
+    }).catch((e) => { toast(errText(e)); loadGame(); });
   });
 }
 function updateGameInList(g) {
@@ -1515,7 +1604,22 @@ const Demo = {
         return wait({ entry: e }, 900);
       }
       case 'updateEntry': { const e = d.entries.find((x) => x.id === p.id); Object.assign(e, p.patch); this.save(d); return wait({ entry: e }); }
-      case 'reorganize': return wait({ entry: d.entries.find((x) => x.id === p.id) }, 700);
+      case 'reorganize': { const e = d.entries.find((x) => x.id === p.id);
+        if (p.raw) Object.assign(e, { raw: p.raw, body: p.raw.replace(/^./, (c) => c.toUpperCase()), title: p.raw.split(/[.!?]/)[0].split(/\s+/).slice(0, 5).join(' ').replace(/^./, (c) => c.toUpperCase()) });
+        e.aiStatus = 'done'; this.save(d); return wait({ entry: e }, 700); }
+      case 'attachMedia': { const e = d.entries.find((x) => x.id === p.id);
+        (p.mediaIds || []).forEach((id) => { const m = d.media.find((x) => x.id === id); if (m) { m.entryId = e.id; m.gameId = e.gameId; } if (e.mediaIds.indexOf(id) < 0) e.mediaIds.push(id); });
+        if (e.mediaIds.length && e.kind === 'note') e.kind = 'media'; this.save(d); return wait({ entry: e }); }
+      case 'detachMedia': { const e = d.entries.find((x) => x.id === p.id); const m = d.media.find((x) => x.id === p.mediaId);
+        e.mediaIds = e.mediaIds.filter((x) => x !== p.mediaId); if (!e.mediaIds.length && e.kind === 'media') e.kind = 'note';
+        let capture = null;
+        if (m && m.source === 'psn') { m.entryId = ''; capture = this.capEntry(d, m); } else d.media = d.media.filter((x) => x.id !== p.mediaId);
+        this.save(d); return wait({ entry: e, capture }); }
+      case 'moveEntries': {
+        d.entries.filter((e) => (p.ids || []).includes(e.id)).forEach((e) => {
+          e.gameId = p.intoId; (e.mediaIds || []).forEach((id) => { const m = d.media.find((x) => x.id === id); if (m) m.gameId = p.intoId; });
+        });
+        this.save(d); return wait({ game: d.games.find((g) => g.id === p.intoId), moved: (p.ids || []).length }, 500); }
       case 'deleteEntry': d.entries = d.entries.filter((x) => x.id !== p.id); this.save(d); return wait({});
       case 'addMedia': { const m = { id: this.id(), gameId: p.gameId, fileId: 'demo', kind: p.kind || 'image', thumb: p.thumb, createdAt: now }; d.media.push(m); this.save(d); return wait({ media: m }, 500); }
       case 'mediaView': return wait({});
