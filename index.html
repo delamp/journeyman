@@ -549,7 +549,8 @@ function renderLibrary() {
       </div>
     </div></div>`;
   if (S.psn && S.psn.status === 'reconnect') html += `<div class="psnLine warn">🎮 PlayStation sign-in expired: paste a new NPSSO and run connectPlayStation() (see SETUP).</div>`;
-  else if (psnOn()) html += `<div class="psnLine">🎮 PS5 captures sync in${S.psn.lastSync ? ' · checked ' + esc(ago(S.psn.lastSync)) : ''}</div>`;
+  else if (psnOn()) html += `<div class="psnLine">🎮 PS5 captures sync in${S.psn.lastSync ? ' · checked ' + esc(ago(S.psn.lastSync)) : ''}
+    <button class="btn small" id="libPsnCheck" style="margin-left:auto;flex:none">${icon('i-refresh', 'width:15px;height:15px')}Check now</button></div>`;
   const pending = store.get('jmQueue', []).length;
   html += `<div class="sectionHead"><h3>Your games</h3><span>${pending ? `<span class="offline">${pending} note${pending > 1 ? 's' : ''} waiting to sync</span>` : games.length + (games.length === 1 ? ' journal' : ' journals')}</span></div><div class="grid">`;
   games.forEach((g) => {
@@ -562,6 +563,7 @@ function renderLibrary() {
   $('heroCap').onclick = () => openCapture({ gameId: cur.id });
   $('heroOpen').onclick = () => openGame(cur.id);
   $('libNew').onclick = () => openGameSheet();
+  if ($('libPsnCheck')) $('libPsnCheck').onclick = () => checkPs5Now($('libPsnCheck'));
   body.querySelectorAll('.gcard').forEach((b) => b.onclick = () => openGame(b.dataset.id));
 }
 
@@ -1049,6 +1051,7 @@ $('gMore').onclick = () => {
     ${g.status !== 'finished' ? `<button data-m="finish">${icon('i-flag')}I finished it! 🏆</button>` : ''}
     ${g.status !== 'paused' && g.status !== 'finished' ? `<button data-m="pause">${icon('i-rewind')}Put on hold</button>` : ''}
     ${g.status !== 'playing' ? `<button data-m="play">${icon('i-play')}Playing again</button>` : ''}
+    ${psnOn() ? `<button data-m="psn">${icon('i-refresh')}Check PS5 for new captures</button>` : ''}
     ${S.games.length > 1 ? `<button data-m="merge">${icon('i-book')}Merge into another journal</button>` : ''}
     <button data-m="delete" class="danger">${icon('i-trash')}Delete this journal</button>`;
   openSheet('menuSheet');
@@ -1057,6 +1060,7 @@ $('gMore').onclick = () => {
     const m = b.dataset.m;
     if (m === 'edit') return setTimeout(() => openGameSheet(g), 250);
     if (m === 'merge') return setTimeout(() => mergeJournal(g), 250);
+    if (m === 'psn') return checkPs5Now(null);
     if (m === 'delete') {
       if (!confirm(`Delete the whole "${g.title}" journal, with its photos and clips? This can't be undone.`)) return;
       api('deleteGame', { id: g.id }).then(() => { S.games = S.games.filter((x) => x.id !== g.id); store.set('jmGames', S.games); showLibrary(); toast('Journal deleted'); })
@@ -1183,10 +1187,12 @@ function openCapture(opts) {
 // ---- PS5 captures on the capture screen ----
 // The screenshot you just took with Create shows up here already ticked. Untick it and it stays out of this note.
 const psnRow = { items: [], picked: {}, loading: false, seq: 0 };
-function loadPsnRow(preIds) {
+function loadPsnRow(preIds, keep) {
   const seq = ++psnRow.seq;
-  psnRow.items = preIds.map((id) => S.media[id]).filter(Boolean);
-  psnRow.picked = {}; preIds.forEach((id) => psnRow.picked[id] = 1);
+  if (!keep) {
+    psnRow.items = preIds.map((id) => S.media[id]).filter(Boolean);
+    psnRow.picked = {}; preIds.forEach((id) => psnRow.picked[id] = 1);
+  }
   psnRow.loading = psnOn();
   renderPsnRow();
   if (!psnOn()) return;
@@ -1209,16 +1215,18 @@ function renderPsnRow() {
   if (box.hidden) return;
   const n = Object.keys(psnRow.picked).length;
   let head, list = '';
+  const check = psnOn() ? `<button class="btn small" id="psnCheck" style="flex:none">${icon('i-refresh', 'width:15px;height:15px')}Check now</button>` : '';
   if (psnRow.items.length) {
-    head = `<b>From your PS5</b><span>${n ? n + ' joining this note' : 'Tap to add'}</span>`;
+    head = `<span><b>From your PS5</b> · ${n ? n + ' joining this note' : 'tap to add'}</span>${check}`;
     list = `<div class="list">${psnRow.items.map((m) => `<button class="pcap ${psnRow.picked[m.id] ? 'on' : ''}" data-pc="${esc(m.id)}" style="background-image:url('${m.thumb || ''}')" aria-label="${m.kind === 'video' ? 'Clip' : 'Screenshot'} ${esc(ago(m.takenAt))}">
       <span class="tick">${icon('i-check')}</span><span class="when">${m.kind === 'video' ? '🎬 ' : ''}${esc(ago(m.takenAt))}</span></button>`).join('')}</div>`;
   } else if (psnRow.loading) {
     head = `<span><span class="dotPulse"></span> Checking your PS5 captures…</span>`;
   } else {
-    head = `<span>🎮 Press <b>Create</b> on your controller: the screenshot joins this note by itself.</span>`;
+    head = `<span>🎮 Press <b>Create</b> on your controller: the screenshot joins this note by itself.</span>${check}`;
   }
   box.innerHTML = `<div class="ph" style="${list ? '' : 'margin:0'}">${head}</div>${list}`;
+  if ($('psnCheck')) $('psnCheck').onclick = () => checkPs5Now($('psnCheck'), () => loadPsnRow([], true));
   box.querySelectorAll('[data-pc]').forEach((b) => b.onclick = () => {
     const id = b.dataset.pc;
     if (psnRow.picked[id]) delete psnRow.picked[id]; else psnRow.picked[id] = 1;
@@ -1230,6 +1238,24 @@ function renderPsnRow() {
 function talkAbout(e) {
   openCapture({ gameId: e.gameId, psnIds: (e.mediaIds || []).slice() });
   $('hint').textContent = 'Say what this is and why it matters — funny, epic, a clue, a place to come back to.';
+}
+
+// ---- "Check PS5 now": look for new screenshots/clips right away (and retry clips that didn't copy yet) ----
+let checkingPs5 = false;
+function checkPs5Now(btn, after) {
+  if (!psnOn()) return toast('PlayStation sync isn’t connected (see SETUP).');
+  if (checkingPs5) return toast('Already checking…');
+  checkingPs5 = true;
+  const done = busy(btn, 'Checking…');
+  toast('Checking your PS5 captures… big clips can take a minute.', null, null, 60000);
+  api('syncCaptures', {}).then((r) => {
+    if (r.busy) return toast('A check is already running. Give it a minute and try again.', null, null, 5000);
+    const n = r.imported || 0;
+    S.psn = Object.assign({}, S.psn, { lastSync: Date.now() }); store.set('jmPsn', S.psn);
+    toast(n ? `📸 ${n} new ${n === 1 ? 'capture' : 'captures'} from your PS5${r.more ? ' (more coming)' : ''}`
+      : (r.attached || []).length ? '📸 Updated your captures' : 'Nothing new yet. A fresh capture can take a minute to upload from the PS5.', null, null, 5000);
+    if (S.game) loadGame(); else loadLibrary();
+  }).catch((e) => toast(errText(e))).then(() => { checkingPs5 = false; done(); after && after(); });
 }
 
 // ---- After saving: keep an eye out for the PS5 capture that goes with the note ----
@@ -1553,13 +1579,14 @@ const Demo = {
       }
       // Pretend PS5: a fake screenshot "arrives" ~20 s after a note is saved without one.
       case 'syncCaptures': {
+        let imported = 0;
         if (d.fakeAfter && Date.now() >= d.fakeAfter.at) {
           const g = d.games.find((x) => x.id === d.fakeAfter.gameId);
           d.media.push(this.fakeCap(g, new Date(d.fakeAfter.at).toISOString()));
-          d.fakeAfter = null;
+          d.fakeAfter = null; imported = 1;
         }
         const attached = this.assign(d); d.psnLast = Date.now(); this.save(d);
-        return wait({ connected: true, imported: attached.length, attached }, 600);
+        return wait({ connected: true, imported, attached }, 600);
       }
       case 'recentCaptures': {
         const since = Date.now() - 45 * 60000;
