@@ -858,6 +858,7 @@ function editEntry(e) {
     <div class="attachments" id="edAtts"></div>
     <button class="attachBtn" id="edAdd" style="width:100%;margin-top:8px">${icon('i-photo')}Add screenshot / clip</button>
     <input type="file" id="edIn" accept="image/*,video/*" multiple hidden>
+    <div class="psnRow" id="edPsn" style="margin-top:10px" hidden></div>
     <div class="saveBar"><button class="btn" id="edCancel">Cancel</button><button class="btn primary" id="edSave">Save</button></div>`;
   const drawAtts = () => {
     $('edAtts').innerHTML = media().map((m) => `<div class="att" style="background-image:url('${m.thumb || ''}')">${m.kind === 'video' ? '<span class="vid">CLIP</span>' : ''}
@@ -875,6 +876,46 @@ function editEntry(e) {
     });
   };
   drawAtts();
+
+  // PS5 captures taken around this note's time that aren't on a note yet: tap one to add it.
+  const ps = { items: [], loading: false };
+  const rel = (t) => {
+    const m = Math.round((new Date(t) - new Date(e.createdAt)) / 60000);
+    return Math.abs(m) < 1 ? 'same time' : Math.abs(m) + ' min ' + (m < 0 ? 'before' : 'after');
+  };
+  const drawPs = () => {
+    const box = $('edPsn'); if (!box) return;
+    box.hidden = !psnOn(); if (box.hidden) return;
+    const btn = `<button class="btn small" id="edPsnCheck" style="flex:none">${icon('i-refresh', 'width:15px;height:15px')}Check PS5 now</button>`;
+    const head = ps.loading ? `<span><span class="dotPulse"></span> Checking your PS5…</span>`
+      : ps.items.length ? `<span><b>From your PS5</b> · around this note, tap to add</span>${btn}`
+      : `<span>No loose PS5 captures from around this note.</span>${btn}`;
+    box.innerHTML = `<div class="ph" style="${ps.items.length ? '' : 'margin:0'}">${head}</div>` + (ps.items.length ? `<div class="list">${ps.items.map((m) =>
+      `<button class="pcap on" data-add="${esc(m.id)}" style="background-image:url('${m.thumb || ''}')" aria-label="Add this capture">
+        <span class="tick">${icon('i-plus')}</span><span class="when">${m.kind === 'video' ? '🎬 ' : ''}${esc(rel(m.takenAt))}</span></button>`).join('')}</div>` : '');
+    if ($('edPsnCheck')) $('edPsnCheck').onclick = () => loadPs(true);
+    box.querySelectorAll('[data-add]').forEach((b) => b.onclick = () => {
+      const id = b.dataset.add; b.disabled = true;
+      api('attachMedia', { id: e.id, mediaIds: [id] }).then((r) => {
+        Object.assign(e, r.entry);
+        ps.items = ps.items.filter((x) => x.id !== id);
+        // It may have been sitting on its own as a capture entry: that entry is gone now.
+        S.entries = S.entries.filter((x) => !(x.kind === 'capture' && (x.mediaIds || []).length === 1 && x.mediaIds[0] === id));
+        drawAtts(); drawPs(); renderGame(); buzz(10); toast('📸 Added to this note');
+      }).catch((err) => { b.disabled = false; toast(errText(err)); });
+    });
+  };
+  const loadPs = (force) => {
+    if (!psnOn()) return drawPs();
+    ps.loading = true; drawPs();
+    api('recentCaptures', { around: e.createdAt, force: !!force }).then((r) => {
+      (r.captures || []).forEach((m) => { S.media[m.id] = Object.assign(S.media[m.id] || {}, m); });
+      ps.items = (r.captures || []).filter((m) => (e.mediaIds || []).indexOf(m.id) < 0);
+      if (force) toast(ps.items.length ? 'Found ' + ps.items.length + ' PS5 capture' + (ps.items.length > 1 ? 's' : '') + ' around this note' : 'Nothing new from your PS5 around this note', null, null, 4000);
+    }).catch((err) => toast(errText(err))).then(() => { ps.loading = false; drawPs(); });
+  };
+  loadPs(false);
+
   const hint = (t, err) => { $('edHint').textContent = t; $('edHint').classList.toggle('err', !!err); };
   $('edMic').onclick = () => listen($('edRaw'), $('edMic'), $('edHint'));
   $('edAdd').onclick = () => $('edIn').click();
@@ -1609,6 +1650,17 @@ const Demo = {
         return wait({ connected: true, imported, attached }, 600);
       }
       case 'recentCaptures': {
+        if (p.around) {
+          const at = new Date(p.around).getTime();
+          if (p.force && !d.media.some((m) => m.source === 'psn' && !m.entryId && Math.abs(new Date(m.takenAt) - at) < 90 * 60000)) {
+            const g = d.games.find((x) => x.id === S.game.id) || d.games[0];
+            d.media.push(this.fakeCap(g, new Date(at - 2 * 60000).toISOString())); this.save(d); // pretend PS5 had one
+          }
+          const caps = d.media.filter((m) => m.source === 'psn' && Math.abs(new Date(m.takenAt) - at) <= 90 * 60000
+            && (!m.entryId || (d.entries.find((e) => e.id === m.entryId) || {}).kind === 'capture'))
+            .sort((a, b) => Math.abs(new Date(a.takenAt) - at) - Math.abs(new Date(b.takenAt) - at));
+          return wait({ captures: caps, psn: { connected: true, status: 'ok', demo: true, lastSync: Date.now() } }, 700);
+        }
         const since = Date.now() - 45 * 60000;
         if (!d.media.some((m) => m.source === 'psn' && Date.now() - new Date(m.takenAt) < 10 * 60000)) {
           const g = d.games.find((x) => x.id === (S.currentGameId || (d.games[0] || {}).id)) || d.games[0];
@@ -1655,7 +1707,15 @@ const Demo = {
         if (p.raw) Object.assign(e, { raw: p.raw, body: p.raw.replace(/^./, (c) => c.toUpperCase()), title: p.raw.split(/[.!?]/)[0].split(/\s+/).slice(0, 5).join(' ').replace(/^./, (c) => c.toUpperCase()) });
         e.aiStatus = 'done'; this.save(d); return wait({ entry: e }, 700); }
       case 'attachMedia': { const e = d.entries.find((x) => x.id === p.id);
-        (p.mediaIds || []).forEach((id) => { const m = d.media.find((x) => x.id === id); if (m) { m.entryId = e.id; m.gameId = e.gameId; } if (e.mediaIds.indexOf(id) < 0) e.mediaIds.push(id); });
+        (p.mediaIds || []).forEach((id) => {
+          const m = d.media.find((x) => x.id === id);
+          if (m) {
+            const old = d.entries.find((x) => x.id === m.entryId && x !== e);
+            if (old) { old.mediaIds = old.mediaIds.filter((x) => x !== id); if (!old.mediaIds.length && old.kind === 'capture') d.entries = d.entries.filter((x) => x !== old); }
+            m.entryId = e.id; m.gameId = e.gameId;
+          }
+          if (e.mediaIds.indexOf(id) < 0) e.mediaIds.push(id);
+        });
         if (e.mediaIds.length && e.kind === 'note') e.kind = 'media'; this.save(d); return wait({ entry: e }); }
       case 'detachMedia': { const e = d.entries.find((x) => x.id === p.id); const m = d.media.find((x) => x.id === p.mediaId);
         e.mediaIds = e.mediaIds.filter((x) => x !== p.mediaId); if (!e.mediaIds.length && e.kind === 'media') e.kind = 'note';
