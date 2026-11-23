@@ -949,9 +949,25 @@ function openMedia(mediaId, e) {
     $('mvTalk').onclick = () => { closeSheet('readSheet'); setTimeout(() => talkAbout(e), 250); };
     $('mvMove').onclick = () => { closeSheet('readSheet'); setTimeout(() => moveEntries([e], 'this capture'), 250); };
   }
-  if (!m.fileId) { // a PS5 clip too big to copy into Drive
+  if (!m.fileId) { // a PS5 clip PlayStation hasn't finished processing, so it couldn't be copied yet
     $('mvDrive').remove(); if ($('mvPlay')) $('mvPlay').remove();
-    $('mvHint').textContent = 'This clip was too big to copy to Drive. It’s in the PlayStation App (for 14 days from when you took it).';
+    const left = m.takenAt ? Math.max(0, 14 - Math.floor((Date.now() - new Date(m.takenAt)) / 864e5)) : null;
+    $('mvHint').innerHTML = `<b>PlayStation hasn’t finished processing this clip</b>, so it couldn’t be copied to Drive yet. Journeyman keeps checking and grabs it as soon as it’s ready.<br><br>
+      Don’t want to wait? In the <b>PlayStation App</b> open the clip and <b>download it to your phone</b>, then tap below and pick it. It uploads straight to your Drive (any size).${left !== null ? ` It stays in the PlayStation App for about ${left} more day${left === 1 ? '' : 's'}.` : ''}
+      <button class="btn primary" id="mvFill" style="width:100%;margin-top:12px">${icon('i-photo')}Add the video from my phone</button>
+      <input type="file" id="mvIn" accept="video/*" hidden>`;
+    $('mvFill').onclick = () => $('mvIn').click();
+    $('mvIn').onchange = () => {
+      const f = $('mvIn').files[0]; $('mvIn').value = '';
+      if (!f) return;
+      if (!/^video\//.test(f.type)) return toast('Pick the video file.');
+      const done = busy($('mvFill'), 'Uploading… 0%');
+      const pct = (p) => { const b = $('mvFill'); if (b) b.lastChild.textContent = 'Uploading… ' + p + '%'; };
+      (DEMO ? Promise.resolve('demo-' + Date.now()) : fileToDrive(m.gameId || S.game.id, f, pct))
+        .then((fileId) => api('fillMedia', { id: m.id, fileId }))
+        .then((r) => { Object.assign(m, r.media); done(); toast('📸 Clip saved to your Drive'); openMedia(m.id, e); renderGame(); })
+        .catch((err) => { done(); toast('Upload failed: ' + errText(err), null, null, 6000); });
+    };
     return;
   }
   const driveUrl = 'https://drive.google.com/file/d/' + m.fileId + '/view';
@@ -1492,8 +1508,14 @@ function uploadAll(gameId, items) {
 }
 
 function uploadOne(gameId, item, onPct) {
-  const f = item.file;
   if (DEMO) { onPct(100); return api('addMedia', { gameId, fileId: 'demo', thumb: item.thumb, kind: item.kind }).then((r) => r.media); }
+  return fileToDrive(gameId, item.file, onPct)
+    .then((fileId) => { onPct(100); return api('addMedia', { gameId, fileId, thumb: item.thumb }); })
+    .then((r) => r.media);
+}
+
+/** Puts a file in the game's Drive folder straight from the phone (any size); returns its Drive file id. */
+function fileToDrive(gameId, f, onPct) {
   return api('startUpload', { gameId, name: f.name, mime: f.type, size: f.size })
     .then((r) => putToDrive(r.uploadUrl, f, onPct))
     .catch((err) => {
@@ -1501,9 +1523,7 @@ function uploadOne(gameId, item, onPct) {
       if (f.size > 20 * 1024 * 1024) throw err;
       onPct(30);
       return readBase64(f).then((data) => api('uploadInline', { gameId, name: f.name, mime: f.type, data })).then((r) => r.fileId);
-    })
-    .then((fileId) => { onPct(100); return api('addMedia', { gameId, fileId, thumb: item.thumb }); })
-    .then((r) => r.media);
+    });
 }
 
 function putToDrive(url, file, onPct) {
@@ -1650,6 +1670,7 @@ const Demo = {
       case 'deleteEntry': d.entries = d.entries.filter((x) => x.id !== p.id); this.save(d); return wait({});
       case 'addMedia': { const m = { id: this.id(), gameId: p.gameId, fileId: 'demo', kind: p.kind || 'image', thumb: p.thumb, createdAt: now }; d.media.push(m); this.save(d); return wait({ media: m }, 500); }
       case 'mediaView': return wait({});
+      case 'fillMedia': { const m = d.media.find((x) => x.id === p.id); m.fileId = p.fileId; this.save(d); return wait({ media: m }, 600); }
       case 'writePage': case 'recap': case 'chronicle': {
         const es = action === 'writePage' ? d.entries.filter((e) => (p.entryIds || []).includes(e.id)) : byGame(d.entries);
         es.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
