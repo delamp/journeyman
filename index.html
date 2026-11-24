@@ -160,7 +160,9 @@
   .scrim.show { opacity: 1; pointer-events: auto; }
   .sheet { position: fixed; z-index: 41; left: 0; right: 0; bottom: 0; max-height: 92vh; overflow-y: auto; background: var(--bg2); border-radius: 26px 26px 0 0; padding: 10px 18px calc(22px + var(--safeB)); transform: translateY(105%); transition: transform .28s cubic-bezier(.2,.8,.2,1); max-width: 720px; margin: 0 auto; }
   .sheet.show { transform: none; }
-  .grab { width: 42px; height: 5px; border-radius: 9px; background: var(--line); margin: 0 auto 12px; }
+  /* The handle: a wide, sticky strip at the top of each sheet so there's always something to grab and swipe down. */
+  .grab { position: sticky; top: -10px; z-index: 3; height: 30px; margin: -10px -18px 6px; background: var(--bg2); border-radius: 26px 26px 0 0; touch-action: none; cursor: grab; }
+  .grab::before { content: ''; position: absolute; left: 50%; top: 12px; width: 46px; height: 5px; margin-left: -23px; border-radius: 9px; background: var(--ink3); opacity: .7; }
   .sheet h3 { font-size: 21px; }
   .sheetHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
   .gamePick { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 99px; background: var(--card); color: var(--ink2); font-size: 13px; font-weight: 600; max-width: 60%; }
@@ -220,7 +222,9 @@
   .viewer img { width: 100%; display: block; }
   .viewer.tapPlay { position: relative; cursor: pointer; }
   .viewer.tapPlay:not(.playing)::after { content: ''; position: absolute; width: 64px; height: 64px; border-radius: 99px; background: rgba(0,0,0,.55) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 6l10 6-10 6z' fill='white'/%3E%3C/svg%3E") center/30px no-repeat; }
-  .viewer.playing { display: block; aspect-ratio: 16 / 9; }
+  /* Drive's player scales its controls with the phone's text size, so give it more height than 16:9 (the video letterboxes). */
+  .viewer.playing { display: block; height: clamp(320px, 62vw, 72vh); }
+  .viewer.playing:fullscreen { height: 100%; border-radius: 0; margin: 0; }
   .viewer iframe { width: 100%; height: 100%; border: 0; display: block; }
   .mvBar { flex-wrap: wrap; }
   .mvBar .btn { flex: 1 1 calc(50% - 5px); min-width: 0; height: auto; min-height: 50px; padding: 8px 12px; line-height: 1.2; text-align: center; font-size: 15px; }
@@ -266,7 +270,8 @@
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6L20 9"/><path d="M20 4v5h-5"/></symbol>
   <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4h11l-2 4 2 4H5"/></symbol>
-  <symbol id="i-drive" viewBox="0 0 24 24"><path d="M8 4h8l5 9-4 7H7l-4-7z"/><path d="M8 4l9 16M16 4L7 20M3 13h18"/></symbol>
+  <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="i-drive"viewBox="0 0 24 24"><path d="M8 4h8l5 9-4 7H7l-4-7z"/><path d="M8 4l9 16M16 4L7 20M3 13h18"/></symbol>
 </svg>
 
 <div class="demo" id="demoBar" hidden>Demo mode — notes stay on this phone. Connect your Google backend to sync.</div>
@@ -516,6 +521,40 @@ function closeSheet(id, fromPop) {
   if (id === 'capSheet' || id === 'readSheet') stopListening();
 }
 $('scrim').onclick = () => openSheets.length && closeSheet(openSheets[openSheets.length - 1]);
+
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && screen.orientation && screen.orientation.unlock) { try { screen.orientation.unlock(); } catch (e) {} }
+});
+
+// Swipe a sheet down to close it: grab the handle anywhere, or pull down on the sheet when it's scrolled to the top.
+document.querySelectorAll('.sheet').forEach((sh) => {
+  let y0 = 0, t0 = 0, dy = 0, dragging = false, fromGrab = false;
+  sh.addEventListener('touchstart', (ev) => {
+    if (ev.touches.length !== 1 || ev.target.closest('input, textarea, select, iframe, .driveGrid')) return;
+    fromGrab = !!ev.target.closest('.grab');
+    if (!fromGrab && sh.scrollTop > 0) return;
+    y0 = ev.touches[0].clientY; t0 = Date.now(); dy = 0; dragging = true;
+  }, { passive: true });
+  sh.addEventListener('touchmove', (ev) => {
+    if (!dragging) return;
+    dy = ev.touches[0].clientY - y0;
+    if (dy <= 0 || (!fromGrab && sh.scrollTop > 0)) { dy = 0; sh.style.transform = ''; return; }
+    ev.preventDefault(); // pull the sheet, not the page
+    sh.style.transition = 'none';
+    sh.style.transform = `translateY(${dy}px)`;
+  }, { passive: false });
+  const end = () => {
+    if (!dragging) return;
+    dragging = false;
+    sh.style.transition = '';
+    const fast = dy > 40 && dy / Math.max(1, Date.now() - t0) > 0.6;
+    if (dy > Math.min(140, sh.offsetHeight * 0.25) || fast) { sh.style.transform = ''; closeSheet(sh.id); }
+    else sh.style.transform = '';
+    dy = 0;
+  };
+  sh.addEventListener('touchend', end);
+  sh.addEventListener('touchcancel', end);
+});
 window.addEventListener('popstate', () => {
   if (skipPop) { skipPop--; return; }
   if (openSheets.length) closeSheet(openSheets[openSheets.length - 1], true);
@@ -1020,7 +1059,15 @@ function openMedia(mediaId, e) {
     const v = $('mv'); if (!v || v.querySelector('iframe')) return;
     v.classList.add('playing');
     v.innerHTML = `<iframe src="https://drive.google.com/file/d/${encodeURIComponent(m.fileId)}/preview" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
-    if ($('mvPlay')) $('mvPlay').remove();
+    // Play becomes "Full screen": the whole screen, turned sideways, so Drive's player has room for its controls.
+    const b = $('mvPlay');
+    if (b && v.requestFullscreen) {
+      b.innerHTML = `${icon('i-full')}Full screen`;
+      b.onclick = (ev) => {
+        ev.stopPropagation();
+        v.requestFullscreen().then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {})).catch(() => {});
+      };
+    } else if (b) b.remove();
     $('mvHint').textContent = 'Not playing? Tap Open in Drive.';
   };
   if (m.kind === 'video') { $('mvPlay').onclick = play; $('mv').onclick = play; $('mv').classList.add('tapPlay'); }
