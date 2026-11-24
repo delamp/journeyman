@@ -514,7 +514,7 @@ const TYPES = {
 const PLATFORMS = ['PS5', 'Xbox', 'Switch', 'PC', 'Steam Deck', 'Mobile', 'Other'];
 const STATUSES = { playing: 'Playing', paused: 'On hold', finished: 'Finished', dropped: 'Dropped' };
 const SESSION_GAP_MS = 3 * 3600 * 1000; // default; Settings can change it
-const APP_VERSION = 'v18';
+const APP_VERSION = 'v19'; // keep in step with CACHE in sw.js
 const sessionGapMs = () => { const h = Number(S.settings && S.settings.SESSION_GAP_HOURS); return h >= 1 ? h * 3600 * 1000 : SESSION_GAP_MS; };
 
 const $ = (id) => document.getElementById(id);
@@ -2521,7 +2521,29 @@ const Demo = {
 if (DEMO) $('demoBar').hidden = false;
 if (!DEMO && !KEY) $('libBody').innerHTML = `<div class="empty"><h2>Almost there.</h2><p>Open your personal Journeyman link (the one with <b>#k=</b> in it) once on this phone and it’ll remember you.</p></div>`;
 else { renderLibrary(); loadLibrary().then(takeShare); flushQueue(); }
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
+
+// ---- Updates: whenever the app comes to the front, see if a newer version is out, and switch to it ----
+// (Reloads by itself only when you're not in the middle of something; otherwise it asks.)
+function checkForUpdate() {
+  if (DEMO || !navigator.onLine) return;
+  fetch('./?v=' + Date.now(), { cache: 'no-store' }).then((r) => r.ok ? r.text() : '').then((html) => {
+    const m = html.match(/const APP_VERSION = '([^']+)'/);
+    if (!m || m[1] === APP_VERSION) return;
+    if (navigator.serviceWorker) navigator.serviceWorker.getRegistration().then((reg) => reg && reg.update()).catch(() => {});
+    const go = () => location.replace(location.pathname + '?updated=' + encodeURIComponent(m[1])); // a fresh address skips every cache
+    let tried = ''; try { tried = sessionStorage.getItem('jmUpdTried') || ''; } catch (e) {}
+    const midTask = openSheets.length || $('capText').value.trim() || listening;
+    if (!midTask && tried !== m[1]) { try { sessionStorage.setItem('jmUpdTried', m[1]); } catch (e) {} go(); }
+    else toast('A new version of Journeyman is ready', 'Update now', go, 15000, true);
+  }).catch(() => {});
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
+setTimeout(checkForUpdate, 3000);
+if (/[?&]updated=/.test(location.search)) {
+  setTimeout(() => toast('✨ Journeyman updated to ' + APP_VERSION), 1200);
+  history.replaceState(null, '', location.pathname + location.search.replace(/[?&]updated=[^&]*/, '').replace(/^&/, '?'));
+}
 </script>
 </body>
 </html>

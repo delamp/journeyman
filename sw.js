@@ -1,7 +1,7 @@
 ﻿// Journeyman's offline helper. It keeps a copy of the app so it opens without signal, and it catches
 // screenshots / clips shared in from other apps (Gallery, PlayStation / Xbox app) and hands them to the page.
 // Your notes and media always come live from your Google backend.
-const CACHE = 'journeyman-v18';
+const CACHE = 'journeyman-v19';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -41,8 +41,11 @@ self.addEventListener('fetch', (event) => {
 
   // Never touch the Apps Script / Drive calls or anything else off this site.
   if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
+  // The app page itself always asks GitHub for the newest copy (GitHub otherwise lets phones reuse a page for 10 min,
+  // which made updates look like they never arrived). Falls back to the saved copy offline.
+  const isPage = event.request.mode === 'navigate' || /\/(index\.html)?$/.test(url.pathname);
   event.respondWith(
-    fetch(event.request)
+    (isPage ? fetch(url.href, { cache: 'no-cache', credentials: 'same-origin' }) : fetch(event.request))
       .then((res) => {
         if (res.ok && !url.search) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(event.request, copy)); }
         return res;
