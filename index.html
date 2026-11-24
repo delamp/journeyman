@@ -218,6 +218,13 @@
   .reader.paper { background: linear-gradient(180deg, #221d16, #1b1813); border: 1px solid #3a2e1c; border-radius: 18px; padding: 18px; }
   .viewer { border-radius: 16px; overflow: hidden; background: #000; margin: 0 -4px 14px; min-height: 160px; display: grid; place-items: center; }
   .viewer img { width: 100%; display: block; }
+  .viewer.tapPlay { position: relative; cursor: pointer; }
+  .viewer.tapPlay:not(.playing)::after { content: ''; position: absolute; width: 64px; height: 64px; border-radius: 99px; background: rgba(0,0,0,.55) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 6l10 6-10 6z' fill='white'/%3E%3C/svg%3E") center/30px no-repeat; }
+  .viewer.playing { display: block; aspect-ratio: 16 / 9; }
+  .viewer iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .mvBar { flex-wrap: wrap; }
+  .mvBar .btn { flex: 1 1 calc(50% - 5px); min-width: 0; height: auto; min-height: 50px; padding: 8px 12px; line-height: 1.2; text-align: center; font-size: 15px; }
+  .mvBar .btn svg { flex: 0 0 auto; }
   .rawBox { background: var(--card); border-radius: 14px; padding: 12px; color: var(--ink3); font-size: 13.5px; white-space: pre-wrap; }
   .menuList button { width: 100%; text-align: left; padding: 14px 6px; border-bottom: 1px solid var(--line); font-weight: 500; display: flex; gap: 12px; align-items: center; }
   .menuList button.danger { color: var(--red); }
@@ -992,14 +999,14 @@ function openMedia(mediaId, e) {
   $('readBody').innerHTML = `<div class="viewer" id="mv"><img src="${m.thumb || ''}" alt="" id="mvImg"></div>
     <div class="sheetHead"><h3>${esc(e.title || 'Capture')}</h3></div>
     <div class="reader">${esc(e.body || '')}</div>
-    <div class="saveBar">${m.kind === 'video' ? `<button class="btn primary" id="mvPlay">${icon('i-play')}Play clip</button>` : ''}
+    <div class="saveBar mvBar">${m.kind === 'video' ? `<button class="btn primary" id="mvPlay">${icon('i-play')}Play clip</button>` : ''}
       <button class="btn" id="mvDrive">${icon('i-drive')}Open in Drive</button></div>
-    <div class="hint" style="margin-top:8px" id="mvHint">${m.kind === 'video' ? 'Clips play in Google Drive (they stay private in your Drive).' : 'Loading full size…'}</div>`;
+    <div class="hint" style="margin-top:8px" id="mvHint">${m.kind === 'video' ? '' : 'Loading full size…'}</div>`;
   if (openSheets.indexOf('readSheet') < 0) openSheet('readSheet');
   if (e.kind === 'capture') {
     $('readBody').querySelector('.reader').innerHTML = '';
     $('readBody').querySelector('.saveBar').insertAdjacentHTML('afterbegin', `<button class="btn primary" id="mvTalk">${icon('i-mic')}Talk about it</button>`);
-    $('readBody').querySelector('.saveBar').insertAdjacentHTML('beforeend', `<button class="btn" id="mvMove" style="flex:0 0 auto">Move</button>`);
+    $('readBody').querySelector('.saveBar').insertAdjacentHTML('beforeend', `<button class="btn" id="mvMove">Move</button>`);
     $('mvTalk').onclick = () => { closeSheet('readSheet'); setTimeout(() => talkAbout(e), 250); };
     $('mvMove').onclick = () => { closeSheet('readSheet'); setTimeout(() => moveEntries([e], 'this capture'), 250); };
   }
@@ -1008,7 +1015,15 @@ function openMedia(mediaId, e) {
   renderDesc(m, e);
   const driveUrl = 'https://drive.google.com/file/d/' + m.fileId + '/view';
   $('mvDrive').onclick = () => window.open(driveUrl, '_blank');
-  if ($('mvPlay')) $('mvPlay').onclick = () => window.open(driveUrl, '_blank');
+  // Play right here with Drive's own player (the file stays private: it plays because you're signed in to Google).
+  const play = () => {
+    const v = $('mv'); if (!v || v.querySelector('iframe')) return;
+    v.classList.add('playing');
+    v.innerHTML = `<iframe src="https://drive.google.com/file/d/${encodeURIComponent(m.fileId)}/preview" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+    if ($('mvPlay')) $('mvPlay').remove();
+    $('mvHint').textContent = 'Not playing? Tap Open in Drive.';
+  };
+  if (m.kind === 'video') { $('mvPlay').onclick = play; $('mv').onclick = play; $('mv').classList.add('tapPlay'); }
   api('mediaView', { id: mediaId }).then((r) => {
     if (r.data && $('mvImg')) $('mvImg').src = 'data:' + r.mime + ';base64,' + r.data;
     if (m.kind !== 'video' && $('mvHint')) $('mvHint').textContent = '';
@@ -1024,7 +1039,7 @@ function renderDesc(m, e) {
     box.innerHTML = `<button class="btn" id="mvDescribe" style="width:100%">✨ What’s in this ${what}?</button>`;
   } else {
     box.innerHTML = `<div class="label">What’s in this ${what}</div>
-      <b class="dCap">${esc(d.caption)}</b>${d.spoiler ? ' <span class="tag">spoiler</span>' : ''}
+      ${d.caption !== e.title ? `<b class="dCap">${esc(d.caption)}</b>` : ''}${d.spoiler ? ' <span class="tag">spoiler</span>' : ''}
       <p>${esc(d.summary)}</p>
       ${(d.moments || []).length ? `<ul class="dMoments">${d.moments.map((x) => `<li><span>${esc(x.at)}</span>${esc(x.what)}</li>`).join('')}</ul>` : ''}
       ${d.onScreen ? `<p class="dOn">On screen: ${esc(d.onScreen)}</p>` : ''}
