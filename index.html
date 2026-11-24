@@ -161,6 +161,43 @@
   .sheet { position: fixed; z-index: 41; left: 0; right: 0; bottom: 0; max-height: 92vh; overflow-y: auto; background: var(--bg2); border-radius: 26px 26px 0 0; padding: 10px 18px calc(22px + var(--safeB)); transform: translateY(105%); transition: transform .28s cubic-bezier(.2,.8,.2,1); max-width: 720px; margin: 0 auto; }
   .sheet.show { transform: none; }
   .sheet:not(.show) { pointer-events: none; } /* no stray taps on a sheet that's sliding away */
+  /* Menu + Settings */
+  .menuBtn { position: relative; }
+  .menuBtn .badge { position: absolute; top: 7px; right: 7px; width: 10px; height: 10px; border-radius: 99px; background: var(--red); box-shadow: 0 0 0 2px var(--bg); }
+  .menuBtn .badge.warn { background: var(--amber); }
+  .menuItem { width: 100%; display: flex; align-items: center; gap: 14px; padding: 14px 6px; min-height: 56px; background: none; border: 0; border-bottom: 1px solid var(--line); color: var(--ink); font-size: 16px; font-weight: 600; text-align: left; cursor: pointer; }
+  .menuItem:last-child { border-bottom: 0; }
+  .menuItem .i { width: 22px; height: 22px; color: var(--ink2); flex: none; }
+  .menuItem small { display: block; font-weight: 500; font-size: 13px; color: var(--ink3); margin-top: 2px; }
+  .menuItem .dot { margin-left: auto; }
+  .dot { width: 10px; height: 10px; border-radius: 99px; flex: none; background: var(--ink3); }
+  .dot.ok { background: var(--teal); } .dot.warn { background: var(--amber); } .dot.bad { background: var(--red); }
+  .hRow { display: flex; align-items: flex-start; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--line); }
+  .hRow .dot { margin-top: 6px; }
+  .hRow .tx { flex: 1; min-width: 0; }
+  .hRow b { display: block; font-weight: 600; font-size: 15px; }
+  .hRow small { display: block; color: var(--ink3); font-size: 13px; line-height: 1.4; margin-top: 2px; overflow-wrap: anywhere; }
+  .hRow .hAct { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .hRow .switch { margin-top: 2px; }
+  .sRow { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .sRow .tx { flex: 1 1 180px; min-width: 0; }
+  .sRow b { display: block; font-weight: 600; font-size: 15px; }
+  .sRow small { display: block; color: var(--ink3); font-size: 13px; line-height: 1.4; margin-top: 2px; }
+  .stepper { display: inline-flex; align-items: center; border-radius: 12px; background: var(--card); flex: none; }
+  .stepper button { width: 44px; height: 44px; border: 0; background: none; color: var(--ink); font-size: 22px; cursor: pointer; }
+  .stepper button:disabled { opacity: .3; }
+  .stepper span { min-width: 64px; text-align: center; font-weight: 600; font-size: 15px; }
+  .seg { display: inline-flex; border-radius: 12px; background: var(--card); padding: 3px; flex-wrap: wrap; }
+  .seg button { min-height: 38px; padding: 0 12px; border: 0; border-radius: 9px; background: none; color: var(--ink2); font-weight: 600; font-size: 14px; cursor: pointer; }
+  .seg button.on { background: var(--amber); color: #1a1408; }
+  .switch { width: 52px; height: 32px; border-radius: 99px; background: var(--card); border: 1.5px solid var(--line); position: relative; flex: none; cursor: pointer; }
+  .switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 23px; height: 23px; border-radius: 99px; background: var(--ink3); transition: transform .18s, background .18s; }
+  .switch.on { background: var(--tealDim); border-color: var(--teal); }
+  .switch.on::after { transform: translateX(20px); background: var(--teal); }
+  .switch:disabled { opacity: .4; }
+  .npssoBox { background: var(--card); border-radius: 14px; padding: 14px; margin-top: 10px; font-size: 14px; line-height: 1.5; color: var(--ink2); }
+  .npssoBox ol { margin: 6px 0 10px; padding-left: 20px; }
+  .npssoBox a { color: var(--amber); }
   .linkBtn { background: none; border: 0; padding: 0 2px; color: var(--amber); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
   /* The handle: a wide, sticky strip at the top of each sheet so there's always something to grab and swipe down. */
   .grab { position: sticky; top: -10px; z-index: 3; height: 30px; margin: -10px -18px 6px; background: var(--bg2); border-radius: 26px 26px 0 0; touch-action: none; cursor: grab; }
@@ -299,6 +336,8 @@
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6L20 9"/><path d="M20 4v5h-5"/></symbol>
   <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
   <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
   <symbol id="i-drive"viewBox="0 0 24 24"><path d="M8 4h8l5 9-4 7H7l-4-7z"/><path d="M8 4l9 16M16 4L7 20M3 13h18"/></symbol>
 </svg>
@@ -309,7 +348,8 @@
 <main class="wrap" id="libView">
   <div class="top">
     <div class="brand"><img src="icon-192.png" alt=""><div><small>Game Notes</small><h1>Journeyman</h1></div></div>
-    <button class="iconBtn" id="libRefresh" aria-label="Refresh"><svg class="i"><use href="#i-refresh"/></svg></button>
+    <button class="iconBtn" id="libRefresh" aria-label="Refresh" style="margin-left:auto"><svg class="i"><use href="#i-refresh"/></svg></button>
+    <button class="iconBtn menuBtn" id="libMenu" aria-label="Menu"><svg class="i"><use href="#i-menu"/></svg><span class="badge" hidden></span></button>
   </div>
   <div id="libBody"><div class="loading"><div class="spinner"></div></div></div>
 </main>
@@ -319,7 +359,8 @@
   <div class="banner" id="gBanner">
     <div class="bar">
       <button class="iconBtn" id="gBack" aria-label="Back to library"><svg class="i"><use href="#i-back"/></svg></button>
-      <button class="iconBtn" id="gMore" aria-label="Game options"><svg class="i"><use href="#i-more"/></svg></button>
+      <span style="display:flex;gap:8px"><button class="iconBtn" id="gMore" aria-label="Game options"><svg class="i"><use href="#i-more"/></svg></button>
+      <button class="iconBtn menuBtn" id="gMenu" aria-label="Menu"><svg class="i"><use href="#i-menu"/></svg><span class="badge" hidden></span></button></span>
     </div>
   </div>
   <div class="gHead">
@@ -419,6 +460,17 @@
   <div class="pvHint" id="pvHint">Pinch or double-tap to zoom · swipe down to close</div>
 </div>
 
+<section class="sheet" id="menuSheet" aria-label="Menu">
+  <div class="grab"></div>
+  <div id="menuBody"></div>
+</section>
+
+<section class="sheet" id="setSheet" aria-label="Settings">
+  <div class="grab"></div>
+  <div class="sheetHead"><h3>Settings</h3></div>
+  <div id="setBody"></div>
+</section>
+
 <section class="sheet" id="askSheet" aria-label="Ask my journal">
   <div class="grab"></div>
   <div class="sheetHead"><h3>Ask my journal</h3></div>
@@ -461,7 +513,9 @@ const TYPES = {
 };
 const PLATFORMS = ['PS5', 'Xbox', 'Switch', 'PC', 'Steam Deck', 'Mobile', 'Other'];
 const STATUSES = { playing: 'Playing', paused: 'On hold', finished: 'Finished', dropped: 'Dropped' };
-const SESSION_GAP_MS = 3 * 3600 * 1000;
+const SESSION_GAP_MS = 3 * 3600 * 1000; // default; Settings can change it
+const APP_VERSION = 'v18';
+const sessionGapMs = () => { const h = Number(S.settings && S.settings.SESSION_GAP_HOURS); return h >= 1 ? h * 3600 * 1000 : SESSION_GAP_MS; };
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -528,6 +582,8 @@ const S = {
   tab: 'journal', filter: 'all', search: '',
   currentGameId: store.get('jmCurrent', ''),
   psn: store.get('jmPsn', null),     // PlayStation Capture Sync status from the backend
+  health: store.get('jmHealth', null),     // "is everything working?" for the Settings screen
+  settings: store.get('jmSettings', null), // the knobs you can change in Settings
 };
 const psnOn = () => !!(S.psn && S.psn.connected);
 
@@ -675,7 +731,8 @@ function renderLibrary() {
         <button class="btn ghost" id="heroOpen">${icon('i-book')}Open journal</button>
       </div>
     </div></div>`;
-  if (S.psn && S.psn.status === 'reconnect') html += `<div class="psnLine warn">🎮 PlayStation sign-in expired: paste a new NPSSO and run connectPlayStation() (see SETUP).</div>`;
+  if (S.psn && S.psn.status === 'reconnect') html += `<div class="psnLine warn">🎮 PlayStation sign-in expired — new captures can’t come in.
+    <button class="btn small" id="libPsnFix" style="margin-left:auto;flex:none">Reconnect</button></div>`;
   else if (psnOn()) html += `<div class="psnLine">🎮 PS5 captures sync in${S.psn.lastSync ? ' · checked ' + esc(ago(S.psn.lastSync)) : ''}
     <button class="btn small" id="libPsnCheck" style="margin-left:auto;flex:none">${icon('i-refresh', 'width:15px;height:15px')}Check now</button></div>`;
   const pending = store.get('jmQueue', []).length;
@@ -691,7 +748,161 @@ function renderLibrary() {
   $('heroOpen').onclick = () => openGame(cur.id);
   $('libNew').onclick = () => openGameSheet();
   if ($('libPsnCheck')) $('libPsnCheck').onclick = () => checkPs5Now($('libPsnCheck'));
+  if ($('libPsnFix')) $('libPsnFix').onclick = () => { openSettings(); renderSettings({ connecting: true }); };
+  renderBadges();
   body.querySelectorAll('.gcard').forEach((b) => b.onclick = () => openGame(b.dataset.id));
+}
+
+// ====================================================================================
+// Menu (☰) + Settings (⚙): what's working, what isn't, and the knobs you can turn without asking for a code change.
+// ====================================================================================
+/** Things that need you, worst first: [{ level: 'bad'|'warn', what }] */
+function healthIssues() {
+  const h = S.health, out = [];
+  const pending = store.get('jmQueue', []).length;
+  if (h) {
+    const p = h.psn || {};
+    if (p.status === 'reconnect') out.push({ level: 'bad', what: 'PlayStation sign-in expired' });
+    else if (p.connected && !h.autoSync) out.push({ level: 'bad', what: 'PS5 auto-sync is off' });
+    else if (p.connected && p.lastSync && Date.now() - p.lastSync > 3 * 3600 * 1000 && h.autoSync) out.push({ level: 'warn', what: 'PS5 hasn’t synced in ' + ago(p.lastSync).replace(' ago', '') });
+    if (h.psnError && (!p.lastSync || h.psnError.at > p.lastSync)) out.push({ level: 'warn', what: 'Last PS5 sync hit a problem' });
+    if (!h.claude) out.push({ level: 'bad', what: 'Note tidy-up has no Claude key' });
+    if (!h.gemini) out.push({ level: 'warn', what: '“What’s in this?” has no Gemini key' });
+  }
+  if (pending) out.push({ level: 'warn', what: pending + ' note' + (pending > 1 ? 's' : '') + ' waiting on this phone' });
+  return out;
+}
+function renderBadges() {
+  const iss = healthIssues();
+  const lvl = iss.some((x) => x.level === 'bad') ? 'bad' : iss.length ? 'warn' : '';
+  document.querySelectorAll('.menuBtn .badge').forEach((b) => { b.hidden = !lvl; b.classList.toggle('warn', lvl === 'warn'); });
+  return { iss, lvl };
+}
+
+function openMenu() {
+  const { iss, lvl } = renderBadges();
+  const pending = store.get('jmQueue', []).length;
+  $('menuBody').innerHTML = `
+    <button class="menuItem" id="mSet">${icon('i-gear')}<span>Settings<small>${lvl ? esc(iss[0].what) + (iss.length > 1 ? ' · +' + (iss.length - 1) + ' more' : '') : 'Everything’s working'}</small></span><span class="dot ${lvl === 'bad' ? 'bad' : lvl ? 'warn' : 'ok'}"></span></button>
+    ${psnOn() ? `<button class="menuItem" id="mPs5">${icon('i-refresh')}<span>Check PS5 for new captures<small>${S.psn && S.psn.lastSync ? 'Last checked ' + esc(ago(S.psn.lastSync)) : 'Not checked yet'}</small></span></button>` : ''}
+    ${pending ? `<button class="menuItem" id="mFlush">${icon('i-refresh')}<span>Send ${pending} waiting note${pending > 1 ? 's' : ''}<small>Saved on this phone, not in your journal yet</small></span></button>` : ''}
+    <button class="menuItem" id="mRefresh">${icon('i-refresh')}<span>Refresh<small>Reload your journals</small></span></button>`;
+  openSheet('menuSheet');
+  $('mSet').onclick = () => { closeSheet('menuSheet'); setTimeout(openSettings, 250); };
+  if ($('mPs5')) $('mPs5').onclick = () => { closeSheet('menuSheet'); checkPs5Now(null); };
+  if ($('mFlush')) $('mFlush').onclick = () => { closeSheet('menuSheet'); flushQueue(true); };
+  $('mRefresh').onclick = () => { closeSheet('menuSheet'); flushQueue(); (S.game && !$('gameView').hidden ? loadGame() : loadLibrary()).then(() => toast('Up to date')); };
+}
+$('libMenu').onclick = openMenu;
+$('gMenu').onclick = openMenu;
+
+const SET_LABELS = { low: 'Light', medium: 'Standard', high: 'Thorough' };
+const SET_RANGE = { PSN_BEFORE_MIN: [0, 30], PSN_AFTER_MIN: [0, 30], PSN_RECENT_MIN: [15, 240], SESSION_GAP_HOURS: [1, 12] }; // same limits as the backend
+let setSaveTimer = 0, setSaveSeq = 0;
+function openSettings() {
+  renderSettings();
+  openSheet('setSheet');
+  // Fresh status every time you open it.
+  api('settings', {}).then((r) => {
+    S.health = r.health; S.settings = r.settings; store.set('jmHealth', S.health); store.set('jmSettings', S.settings);
+    if (S.health.psn) { S.psn = S.health.psn; store.set('jmPsn', S.psn); }
+    renderBadges(); if (openSheets.indexOf('setSheet') >= 0) renderSettings();
+  }).catch((e) => { if (openSheets.indexOf('setSheet') >= 0) { const el = $('setLoading'); if (el) el.textContent = 'Couldn’t check: ' + errText(e); } });
+}
+function renderSettings(opts) {
+  opts = opts || {};
+  const h = S.health, s = S.settings;
+  const pending = store.get('jmQueue', []).length;
+  const row = (level, title, sub, act, side) => `<div class="hRow"><span class="dot ${level}"></span><div class="tx"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}${act ? `<div class="hAct">${act}</div>` : ''}</div>${side || ''}</div>`;
+  let html = `<div class="label" style="margin-top:4px">Is everything working?</div>`;
+  if (!h) html += `<div class="hint" id="setLoading"><span class="dotPulse"></span> Checking…</div>`;
+  else {
+    const p = h.psn || {};
+    const psnAct = (label) => `<button class="btn small" id="sPsnConnect">${label}</button>`;
+    if (p.status === 'reconnect') html += row('bad', 'PlayStation: sign-in expired', 'New PS5 screenshots and clips can’t come in until you reconnect.', psnAct('Reconnect'));
+    else if (!p.connected) html += row('', 'PlayStation: not connected', 'Connect to bring PS5 screenshots and clips in automatically.', psnAct('Connect'));
+    else html += row('ok', 'PlayStation: connected', (p.lastSync ? 'Last checked ' + esc(ago(p.lastSync)) : 'Not checked yet') + (p.demo ? ' (demo)' : ''),
+      `<button class="btn small" id="sPsnCheck">${icon('i-refresh', 'width:15px;height:15px')}Check now</button><button class="btn small" id="sPsnOff">Disconnect</button>`);
+    if (opts.connecting) html += `<div class="npssoBox"><b style="color:var(--ink)">Connect PlayStation</b>
+      <ol><li>Sign in at <a href="https://www.playstation.com" target="_blank" rel="noopener">playstation.com</a> in this browser.</li>
+      <li>Then open <a href="https://ca.account.sony.com/api/v1/ssocookie" target="_blank" rel="noopener">this Sony page</a> and copy the long code after <code>"npsso":</code></li>
+      <li>Paste it here.</li></ol>
+      <input class="field" id="sNpsso" type="password" autocomplete="off" placeholder="Paste your NPSSO code">
+      <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" id="sNpssoCancel">Cancel</button><button class="btn primary" id="sNpssoGo">Connect</button></div>
+      <div class="hint" style="margin-top:8px">The code works like a password: it’s used once to sign in, then deleted. Journeyman keeps only a sign-in token for reading your captures.</div></div>`;
+    if (p.connected) html += row(h.autoSync ? 'ok' : 'bad', 'Auto-check every 15 minutes', h.autoSync ? 'Captures come in even when the app is closed.' : 'Off: captures only come in when you save a note or tap Check now.', '',
+      `<button class="switch ${h.autoSync ? 'on' : ''}" id="sAuto" aria-label="Auto-check every 15 minutes" role="switch" aria-checked="${!!h.autoSync}"></button>`);
+    if (h.psnError && (!p.lastSync || h.psnError.at > p.lastSync)) html += row('warn', 'Last PS5 sync hit a problem', esc(ago(h.psnError.at)) + ': ' + esc(h.psnError.msg));
+    html += row(h.claude ? 'ok' : 'bad', 'Note tidy-up (Claude)', h.claude ? 'Ready.' : 'No key: notes are saved but not tidied. Add ANTHROPIC_API_KEY in Apps Script → Project Settings → Script properties.');
+    html += row(h.gemini ? 'ok' : 'warn', '“What’s in this?” (Gemini)', h.gemini ? 'Ready. Runs only when you tap it.' : 'No key: add GEMINI_API_KEY in Apps Script → Project Settings → Script properties.');
+  }
+  html += row(pending ? 'warn' : 'ok', pending ? pending + ' note' + (pending > 1 ? 's' : '') + ' waiting on this phone' : 'Notes on this phone: all synced',
+    pending ? 'They’re safe here and go out automatically when your journal can be reached.' : '', pending ? `<button class="btn small" id="sFlush">Send now</button>` : '');
+
+  if (s) {
+    const d = s.defaults || {};
+    const stepper = (k, unit, step) => `<div class="stepper" data-k="${k}" data-step="${step || 1}"><button data-d="-1" aria-label="Less">−</button><span>${esc(s[k])} ${unit}</span><button data-d="1" aria-label="More">+</button></div>`;
+    const seg = (k) => `<div class="seg" data-k="${k}">${['low', 'medium', 'high'].map((v) => `<button data-v="${v}" class="${s[k] === v ? 'on' : ''}">${SET_LABELS[v]}</button>`).join('')}</div>`;
+    const dflt = (k, unit) => s[k] !== d[k] && d[k] !== undefined ? ` <span style="color:var(--amber)">(default ${esc(SET_LABELS[d[k]] || d[k])}${unit ? ' ' + unit : ''})</span>` : '';
+    html += `<div class="label">PS5 captures</div>
+      <div class="sRow"><div class="tx"><b>Joins a note if taken up to…</b><small>…this long <b style="display:inline">before</b> you saved it (press Create, then talk)${dflt('PSN_BEFORE_MIN', 'min')}</small></div>${stepper('PSN_BEFORE_MIN', 'min')}</div>
+      <div class="sRow"><div class="tx"><b>…or up to</b><small>…this long <b style="display:inline">after</b> (you talked first, or the clip took a while)${dflt('PSN_AFTER_MIN', 'min')}</small></div>${stepper('PSN_AFTER_MIN', 'min')}</div>
+      <div class="sRow"><div class="tx"><b>Capture screen shows the last</b><small>Recent PS5 captures offered when you start a note${dflt('PSN_RECENT_MIN', 'min')}</small></div>${stepper('PSN_RECENT_MIN', 'min', 15)}</div>
+      <div class="label">Journal</div>
+      <div class="sRow"><div class="tx"><b>New play session after</b><small>Notes further apart than this start a new session${dflt('SESSION_GAP_HOURS', 'h')}</small></div>${stepper('SESSION_GAP_HOURS', 'h')}</div>
+      <div class="sRow"><div class="tx"><b>Note tidy-up</b><small>How hard Claude works on each note. Thorough is slower and costs a little more.${dflt('CLAUDE_EFFORT')}</small></div>${seg('CLAUDE_EFFORT')}</div>
+      <div class="sRow"><div class="tx"><b>Pages &amp; recaps</b><small>Journal pages, “Previously on”, the Chronicle${dflt('PAGE_EFFORT')}</small></div>${seg('PAGE_EFFORT')}</div>
+      <button class="btn small" id="sReset" style="margin-top:12px">Reset to defaults</button>`;
+  }
+  html += `<div class="label">About</div><div class="hint">App ${esc(APP_VERSION)} · Backend ${esc(h && h.backend || '…')}</div>`;
+  $('setBody').innerHTML = html;
+  wireSettings();
+}
+function wireSettings() {
+  const b = $('setBody');
+  const q = (id) => b.querySelector('#' + id);
+  if (q('sPsnConnect')) q('sPsnConnect').onclick = () => { renderSettings({ connecting: true }); setTimeout(() => q('sNpsso') && q('sNpsso').focus(), 50); };
+  if (q('sNpssoCancel')) q('sNpssoCancel').onclick = () => renderSettings();
+  if (q('sNpssoGo')) q('sNpssoGo').onclick = () => {
+    const v = q('sNpsso').value.trim(); if (!v) return toast('Paste the code first.');
+    const done = busy(q('sNpssoGo'), 'Connecting…');
+    api('connectPsn', { npsso: v }).then((r) => {
+      S.health = r.health; S.settings = r.settings; S.psn = r.health.psn; store.set('jmHealth', S.health); store.set('jmPsn', S.psn);
+      toast('🎮 PlayStation connected · ' + r.captures + ' captures in your PS cloud'); renderBadges(); renderSettings(); checkPs5Now(null);
+    }).catch((e) => { done(); toast(errText(e), null, null, 7000); });
+  };
+  if (q('sPsnCheck')) q('sPsnCheck').onclick = () => checkPs5Now(q('sPsnCheck'));
+  if (q('sPsnOff')) q('sPsnOff').onclick = () => {
+    if (!confirm('Disconnect PlayStation? New PS5 captures will stop coming in until you connect again. Nothing already in your journal is removed.')) return;
+    api('disconnectPsn', {}).then((r) => { S.health = r.health; S.psn = r.health.psn; store.set('jmHealth', S.health); store.set('jmPsn', S.psn); renderBadges(); renderSettings(); toast('PlayStation disconnected'); })
+      .catch((e) => toast(errText(e)));
+  };
+  if (q('sAuto')) q('sAuto').onclick = () => {
+    const on = !S.health.autoSync; S.health.autoSync = on; renderSettings(); renderBadges();
+    api('saveSettings', { settings: { autoSync: on } }).then((r) => { S.health = r.health; store.set('jmHealth', S.health); renderBadges(); if (openSheets.indexOf('setSheet') >= 0) renderSettings(); toast(on ? 'Auto-check is on' : 'Auto-check is off'); })
+      .catch((e) => { S.health.autoSync = !on; renderSettings(); renderBadges(); toast(errText(e)); });
+  };
+  if (q('sFlush')) q('sFlush').onclick = () => { flushQueue(true); setTimeout(() => openSheets.indexOf('setSheet') >= 0 && renderSettings(), 1500); };
+  b.querySelectorAll('.stepper').forEach((st) => st.querySelectorAll('button').forEach((btn) => btn.onclick = () => {
+    const k = st.dataset.k, r = SET_RANGE[k] || [0, 999];
+    S.settings[k] = Math.max(r[0], Math.min(r[1], Number(S.settings[k]) + Number(btn.dataset.d) * Number(st.dataset.step))); changed(k);
+  }));
+  b.querySelectorAll('.seg').forEach((sg) => sg.querySelectorAll('button').forEach((btn) => btn.onclick = () => { S.settings[sg.dataset.k] = btn.dataset.v; changed(sg.dataset.k); }));
+  if (q('sReset')) q('sReset').onclick = () => { Object.assign(S.settings, S.settings.defaults || {}); changed(); };
+  // Changes save by themselves a moment after the last tap.
+  const changed = () => {
+    store.set('jmSettings', S.settings); renderSettings(); if (S.game && !$('gameView').hidden) renderGame();
+    clearTimeout(setSaveTimer);
+    const mySeq = ++setSaveSeq;
+    setSaveTimer = setTimeout(() => {
+      const send = Object.assign({}, S.settings); delete send.defaults;
+      api('saveSettings', { settings: send }).then((r) => {
+        if (mySeq !== setSaveSeq) return; // you've changed something since: that newer save wins
+        S.settings = r.settings; store.set('jmSettings', S.settings); toast('Settings saved');
+        if (openSheets.indexOf('setSheet') >= 0) renderSettings(); if (S.game && !$('gameView').hidden) renderGame();
+      }).catch((e) => toast('Couldn’t save settings: ' + errText(e)));
+    }, 700);
+  };
 }
 
 function loadLibrary() {
@@ -699,6 +910,9 @@ function loadLibrary() {
     S.games = r.games || [];
     store.set('jmGames', S.games);
     if (r.psn) { S.psn = r.psn; store.set('jmPsn', S.psn); }
+    if (r.health) { S.health = r.health; store.set('jmHealth', S.health); }
+    if (r.settings) { S.settings = r.settings; store.set('jmSettings', S.settings); }
+    renderBadges();
     if (!$('libView').hidden) renderLibrary();
   }).catch((e) => { if (!S.games.length) $('libBody').innerHTML = `<div class="empty"><p>${esc(errText(e))}</p></div>`; else toast(errText(e)); });
 }
@@ -777,7 +991,7 @@ function sessionsOf(entries) {
   sorted.forEach((e) => {
     const last = out[out.length - 1];
     const t = new Date(e.createdAt).getTime();
-    if (last && t - last.end < SESSION_GAP_MS) { last.items.push(e); last.end = t; }
+    if (last && t - last.end < sessionGapMs()) { last.items.push(e); last.end = t; }
     else out.push({ start: t, end: t, items: [e] });
   });
   return out.reverse(); // newest session first
@@ -1744,7 +1958,7 @@ function talkAbout(e) {
 // ---- "Check PS5 now": look for new screenshots/clips right away (and retry clips that didn't copy yet) ----
 let checkingPs5 = false;
 function checkPs5Now(btn, after) {
-  if (!psnOn()) return toast('PlayStation sync isn’t connected (see SETUP).');
+  if (!psnOn()) return toast('PlayStation isn’t connected. Connect it in ☰ → Settings.', 'Settings', openSettings, 6000);
   if (checkingPs5) return toast('Already checking…');
   checkingPs5 = true;
   const done = busy(btn, 'Checking…');
@@ -1753,6 +1967,7 @@ function checkPs5Now(btn, after) {
     if (r.busy) return toast('A check is already running. Give it a minute and try again.', null, null, 5000);
     const n = r.imported || 0;
     S.psn = Object.assign({}, S.psn, { lastSync: Date.now() }); store.set('jmPsn', S.psn);
+    if (S.health) { S.health.psn = S.psn; S.health.psnError = null; store.set('jmHealth', S.health); renderBadges(); if (openSheets.indexOf('setSheet') >= 0) renderSettings(); }
     toast(n ? `📸 ${n} new ${n === 1 ? 'capture' : 'captures'} from your PS5${r.more ? ' (more coming)' : ''}`
       : (r.attached || []).length ? '📸 Updated your captures' : 'Nothing new yet. A fresh capture can take a minute to upload from the PS5.', null, null, 5000);
     if (S.game) loadGame(); else loadLibrary();
@@ -1873,8 +2088,8 @@ $('capSave').onclick = () => {
 
 // Every note is kept on the phone until the journal confirms it, so closing the app or losing signal can't lose it.
 const inflight = {};
-function queueNote(note) { const q = store.get('jmQueue', []).filter((x) => x.clientId !== note.clientId); q.push(note); store.set('jmQueue', q); }
-function unqueueNote(clientId) { store.set('jmQueue', store.get('jmQueue', []).filter((x) => x.clientId !== clientId)); }
+function queueNote(note) { const q = store.get('jmQueue', []).filter((x) => x.clientId !== note.clientId); q.push(note); store.set('jmQueue', q); renderBadges(); }
+function unqueueNote(clientId) { store.set('jmQueue', store.get('jmQueue', []).filter((x) => x.clientId !== clientId)); renderBadges(); }
 function saveNote(note) {
   cap.uploading = false;
   if (openSheets.indexOf('capSheet') >= 0) closeSheet('capSheet');
@@ -2113,6 +2328,14 @@ const Demo = {
   db() { return store.get('jmDemo', { games: [], entries: [], media: [], pages: [] }); },
   save(d) { store.set('jmDemo', d); },
   id() { return Math.random().toString(36).slice(2, 12); },
+  settings(d) {
+    const defaults = { PSN_BEFORE_MIN: 8, PSN_AFTER_MIN: 5, PSN_RECENT_MIN: 45, SESSION_GAP_HOURS: 3, CLAUDE_EFFORT: 'low', PAGE_EFFORT: 'medium' };
+    return Object.assign({}, defaults, d.settings || {}, { defaults });
+  },
+  health(d) {
+    const psn = d.psnOff ? { connected: false, status: 'off', lastSync: null } : { connected: true, status: 'ok', demo: true, lastSync: d.psnLast || null };
+    return { psn, autoSync: d.autoSync !== false && !d.psnOff, psnError: null, claude: true, gemini: true, backend: 'demo' };
+  },
   call(action, p) {
     const d = this.db(), now = new Date().toISOString();
     const wait = (v, ms) => new Promise((r) => setTimeout(() => r(Object.assign({ ok: true }, v)), ms || 250));
@@ -2124,8 +2347,20 @@ const Demo = {
           notes: d.entries.filter((e) => e.gameId === g.id).length,
           revisit: d.entries.filter((e) => e.gameId === g.id && e.revisit && !e.done).length } }))
           .sort((a, b) => String(b.lastPlayedAt).localeCompare(String(a.lastPlayedAt)));
-        return wait({ games, psn: { connected: true, status: 'ok', demo: true, lastSync: d.psnLast || null } });
+        return wait({ games, psn: { connected: true, status: 'ok', demo: true, lastSync: d.psnLast || null }, health: this.health(d), settings: this.settings(d) });
       }
+      case 'settings': return wait({ health: this.health(d), settings: this.settings(d) });
+      case 'saveSettings': {
+        const s = this.settings(d);
+        Object.keys(p.settings || {}).forEach((k) => { if (k in s.defaults) s[k] = p.settings[k]; });
+        delete s.defaults; d.settings = s;
+        if ('autoSync' in (p.settings || {})) d.autoSync = !!p.settings.autoSync;
+        this.save(d); return wait({ health: this.health(d), settings: this.settings(d) });
+      }
+      case 'connectPsn':
+        if (!/^[A-Za-z0-9]{40,100}$/.test(String(p.npsso || '').trim())) return Promise.reject(new Error('That doesn’t look like an NPSSO code (it’s 64 letters and numbers).'));
+        d.psnOff = false; d.autoSync = true; this.save(d); return wait({ captures: 21, health: this.health(d), settings: this.settings(d) }, 900);
+      case 'disconnectPsn': d.psnOff = true; d.autoSync = false; this.save(d); return wait({ health: this.health(d), settings: this.settings(d) });
       // Pretend PS5: a fake screenshot "arrives" ~20 s after a note is saved without one.
       case 'syncCaptures': {
         let imported = 0;

@@ -1,7 +1,7 @@
 ﻿// Journeyman's offline helper. It keeps a copy of the app so it opens without signal, and it catches
 // screenshots / clips shared in from other apps (Gallery, PlayStation / Xbox app) and hands them to the page.
 // Your notes and media always come live from your Google backend.
-const CACHE = 'journeyman-v17';
+const CACHE = 'journeyman-v18';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
