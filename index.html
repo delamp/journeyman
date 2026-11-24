@@ -238,6 +238,21 @@
   .mvDots span.vid { border-radius: 2px; }
   .mvDots span.on { opacity: 1; transform: scale(1.25); }
   .mvDots b { width: 100%; text-align: center; font-size: 13px; font-weight: 600; opacity: .7; }
+  .viewer.tapZoom { cursor: zoom-in; position: relative; }
+  .viewer.tapZoom::after { content: ''; position: absolute; right: 10px; bottom: 10px; width: 36px; height: 36px; border-radius: 10px; background: rgba(0,0,0,.55) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5'/%3E%3C/svg%3E") center/20px no-repeat; }
+  .photoView { position: fixed; inset: 0; z-index: 200; background: #000; touch-action: none; user-select: none; -webkit-user-select: none; overflow: hidden; }
+  .photoView[hidden] { display: none; }
+  .pvStage { position: absolute; inset: 0; }
+  .pvStage img { width: 100%; height: 100%; object-fit: contain; transform-origin: 0 0; will-change: transform; display: block; }
+  .pvTop { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: space-between; padding: max(10px, env(safe-area-inset-top)) 10px 10px; background: linear-gradient(rgba(0,0,0,.6), transparent); color: #fff; transition: opacity .2s; }
+  .pvBtn { width: 48px; height: 48px; border: 0; border-radius: 99px; background: rgba(255,255,255,.14); color: #fff; display: grid; place-items: center; cursor: pointer; }
+  .pvBtn .i { width: 24px; height: 24px; }
+  .pvCount { font-weight: 600; font-size: 15px; }
+  .pvSide { position: absolute; top: 50%; margin-top: -28px; width: 44px; height: 56px; border: 0; border-radius: 12px; background: rgba(0,0,0,.4); color: #fff; font-size: 30px; cursor: pointer; transition: opacity .2s; }
+  .pvPrev { left: 6px; } .pvNext { right: 6px; }
+  .pvSide[hidden] { display: none; }
+  .photoView.zoomed .pvSide, .photoView.zoomed .pvTop, .photoView.zoomed .pvHint { opacity: 0; pointer-events: none; }
+  .pvHint { position: absolute; left: 0; right: 0; bottom: max(16px, env(safe-area-inset-bottom)); text-align: center; color: rgba(255,255,255,.75); font-size: 13px; transition: opacity .4s; pointer-events: none; }
   .mvBar { flex-wrap: wrap; }
   .mvBar .btn { flex: 1 1 calc(50% - 5px); min-width: 0; height: auto; min-height: 50px; padding: 8px 12px; line-height: 1.2; text-align: center; font-size: 15px; }
   .mvBar .btn svg { flex: 0 0 auto; }
@@ -389,6 +404,18 @@
   <div class="grab"></div>
   <div id="readBody"></div>
 </section>
+
+<div class="photoView" id="photoView" hidden aria-label="Screenshot">
+  <div class="pvStage" id="pvStage"><img id="pvImg" alt=""></div>
+  <div class="pvTop">
+    <button class="pvBtn" id="pvClose" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+    <span class="pvCount" id="pvCount"></span>
+    <button class="pvBtn" id="pvTurn" aria-label="Turn sideways"><svg class="i"><use href="#i-full"/></svg></button>
+  </div>
+  <button class="pvSide pvPrev" id="pvPrev" aria-label="Previous">‹</button>
+  <button class="pvSide pvNext" id="pvNext" aria-label="Next">›</button>
+  <div class="pvHint" id="pvHint">Pinch or double-tap to zoom · swipe down to close</div>
+</div>
 
 <section class="sheet" id="askSheet" aria-label="Ask my journal">
   <div class="grab"></div>
@@ -575,6 +602,7 @@ document.querySelectorAll('.sheet').forEach((sh) => {
 });
 window.addEventListener('popstate', () => {
   if (skipPop) { skipPop--; return; }
+  if (PV.open) { closePhoto(true); return; }
   if (openSheets.length) closeSheet(openSheets[openSheets.length - 1], true);
   else if (!$('gameView').hidden) showLibrary(true);
 });
@@ -1051,6 +1079,146 @@ function deleteEntry(e) {
   setTimeout(() => { if (!undone) api('deleteEntry', { id: e.id }).catch((err) => toast(errText(err))); }, 4700);
 }
 
+// ====================================================================================
+// Full-screen screenshot viewer: pinch / double-tap to zoom, drag to pan, swipe to flip, swipe down to close.
+// ====================================================================================
+const fullImg = {}; // mediaId -> full-size data: URL, so flipping back is instant
+const PV = { open: false, list: [], at: 0, e: null, s: 1, tx: 0, ty: 0 };
+function pvApply(anim) {
+  const img = $('pvImg');
+  img.style.transition = anim ? 'transform .2s ease-out' : 'none';
+  img.style.transform = `translate(${PV.tx}px, ${PV.ty}px) scale(${PV.s})`;
+  $('photoView').classList.toggle('zoomed', PV.s > 1.01);
+}
+function pvClamp() {
+  // Keep the picture itself (not the black bars around it) on screen; centre it on an axis where it's smaller than the screen.
+  const W = innerWidth, H = innerHeight, img = $('pvImg');
+  const ar = (img.naturalWidth && img.naturalHeight) ? img.naturalWidth / img.naturalHeight : 16 / 9;
+  const cw = Math.min(W, H * ar), ch = cw / ar, ox = (W - cw) / 2, oy = (H - ch) / 2;
+  PV.s = Math.min(5, Math.max(1, PV.s));
+  const fit = (t, size, off, view) => size * PV.s <= view ? (view - size * PV.s) / 2 - PV.s * off
+    : Math.min(-PV.s * off, Math.max(view - PV.s * (off + size), t));
+  PV.tx = fit(PV.tx, cw, ox, W);
+  PV.ty = fit(PV.ty, ch, oy, H);
+}
+function pvShow(i, dir) {
+  PV.at = i; PV.s = 1; PV.tx = 0; PV.ty = 0;
+  const id = PV.list[i], m = S.media[id];
+  const img = $('pvImg');
+  img.src = fullImg[id] || (m && m.thumb) || '';
+  if (dir) { PV.tx = dir * 60; pvApply(false); requestAnimationFrame(() => { PV.tx = 0; pvApply(true); }); } else pvApply(false);
+  $('pvCount').textContent = PV.list.length > 1 ? `${i + 1} of ${PV.list.length}` : '';
+  $('pvPrev').hidden = i === 0; $('pvNext').hidden = i === PV.list.length - 1;
+  if (!fullImg[id]) api('mediaView', { id }).then((r) => {
+    if (!r.data) return;
+    fullImg[id] = 'data:' + r.mime + ';base64,' + r.data;
+    if (PV.open && PV.list[PV.at] === id) img.src = fullImg[id];
+  }).catch(() => {});
+}
+function openPhoto(mediaId, e) {
+  // Flip through just this note's screenshots (clips play in the drawer).
+  const list = (e.mediaIds || []).filter((id) => S.media[id] && S.media[id].kind !== 'video' && S.media[id].fileId);
+  if (list.indexOf(mediaId) < 0) list.unshift(mediaId);
+  Object.assign(PV, { open: true, list, e });
+  $('photoView').hidden = false;
+  pvShow(list.indexOf(mediaId));
+  const hint = $('pvHint'); hint.style.opacity = 1; clearTimeout(PV.hintT); PV.hintT = setTimeout(() => hint.style.opacity = 0, 2500);
+  history.pushState({ photo: 1 }, '');
+}
+function closePhoto(fromPop) {
+  if (!PV.open) return;
+  PV.open = false;
+  $('photoView').hidden = true;
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  if (!fromPop) goBack();
+  // Leave the drawer on whichever screenshot you ended on.
+  const id = PV.list[PV.at];
+  if (openSheets.indexOf('readSheet') >= 0 && $('mv') && $('mv').dataset.id !== id) openMedia(id, PV.e);
+}
+function pvGo(step) { const j = PV.at + step; if (j >= 0 && j < PV.list.length) pvShow(j, step); else { PV.tx = 0; pvApply(true); } }
+$('pvClose').onclick = () => closePhoto();
+$('pvPrev').onclick = () => pvGo(-1);
+$('pvNext').onclick = () => pvGo(1);
+$('pvTurn').onclick = () => { // the app is portrait-only; this turns just the picture sideways to fill the screen
+  const v = $('photoView');
+  if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return; }
+  if (v.requestFullscreen) v.requestFullscreen().then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {})).catch(() => {});
+};
+document.addEventListener('fullscreenchange', () => { if (PV.open) { PV.s = 1; PV.tx = 0; PV.ty = 0; pvApply(false); } });
+(() => {
+  const v = $('photoView');
+  let mode = null, p0 = null, t0 = null, d0 = 0, s0 = 1, q = null, startT = 0, lastTap = 0, moved = false;
+  const pt = (t) => ({ x: t.clientX, y: t.clientY });
+  const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  const mid = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 });
+  v.addEventListener('touchstart', (ev) => {
+    if (ev.target.closest('button')) return;
+    const T = ev.touches;
+    if (T.length === 2) {
+      mode = 'pinch'; d0 = dist(T[0], T[1]); s0 = PV.s;
+      const m = mid(T[0], T[1]); q = { x: (m.x - PV.tx) / PV.s, y: (m.y - PV.ty) / PV.s };
+    } else if (T.length === 1) {
+      mode = PV.s > 1.01 ? 'pan' : 'swipe'; p0 = pt(T[0]); t0 = { x: PV.tx, y: PV.ty }; startT = Date.now(); moved = false;
+    }
+  }, { passive: true });
+  v.addEventListener('touchmove', (ev) => {
+    if (!mode) return;
+    ev.preventDefault();
+    const T = ev.touches;
+    if (mode === 'pinch' && T.length === 2) {
+      const m = mid(T[0], T[1]);
+      PV.s = Math.min(5, Math.max(0.8, s0 * dist(T[0], T[1]) / d0));
+      PV.tx = m.x - PV.s * q.x; PV.ty = m.y - PV.s * q.y; moved = true;
+      pvApply(false);
+    } else if (T.length === 1 && p0) {
+      const dx = T[0].clientX - p0.x, dy = T[0].clientY - p0.y;
+      if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
+      if (mode === 'pan') { PV.tx = t0.x + dx; PV.ty = t0.y + dy; pvClamp(); pvApply(false); }
+      else if (mode === 'swipe') {
+        if (Math.abs(dx) > Math.abs(dy)) { PV.tx = dx; PV.ty = 0; v.style.background = '#000'; }
+        else if (dy > 0) { PV.tx = 0; PV.ty = dy; v.style.background = `rgba(0,0,0,${Math.max(0.3, 1 - dy / 500)})`; }
+        pvApply(false);
+      }
+    }
+  }, { passive: false });
+  v.addEventListener('touchend', (ev) => {
+    if (!mode) return;
+    if (mode === 'pinch') {
+      if (ev.touches.length === 1) { mode = 'pan'; p0 = pt(ev.touches[0]); t0 = { x: PV.tx, y: PV.ty }; } // one finger still down: keep panning
+      else mode = null;
+      if (PV.s < 1.05) { PV.s = 1; PV.tx = 0; PV.ty = 0; } else pvClamp();
+      pvApply(true);
+      return;
+    }
+    const t = ev.changedTouches[0], dx = t.clientX - p0.x, dy = t.clientY - p0.y, fast = Date.now() - startT < 300;
+    const was = mode; mode = null; v.style.background = '';
+    if (!moved) { // a tap: two quick taps zoom in (or back out)
+      const now = Date.now();
+      if (now - lastTap < 300) {
+        lastTap = 0;
+        if (PV.s > 1.01) { PV.s = 1; PV.tx = 0; PV.ty = 0; }
+        else { PV.s = 2.5; PV.tx = t.clientX - 2.5 * t.clientX; PV.ty = t.clientY - 2.5 * t.clientY; pvClamp(); }
+        pvApply(true);
+      } else lastTap = now;
+      return;
+    }
+    if (was !== 'swipe') return;
+    if (Math.abs(dx) > Math.abs(dy) && (Math.abs(dx) > innerWidth * 0.2 || (fast && Math.abs(dx) > 40))) pvGo(dx < 0 ? 1 : -1);
+    else if (dy > Math.abs(dx) && (dy > 120 || (fast && dy > 50))) closePhoto();
+    else { PV.tx = 0; PV.ty = 0; pvApply(true); }
+  });
+  // Mouse (desktop): double-click zooms, wheel zooms, arrow keys flip, Esc closes.
+  v.addEventListener('dblclick', (ev) => {
+    if (ev.target.closest('button')) return;
+    if (PV.s > 1.01) { PV.s = 1; PV.tx = 0; PV.ty = 0; } else { PV.s = 2.5; PV.tx = ev.clientX * -1.5; PV.ty = ev.clientY * -1.5; pvClamp(); }
+    pvApply(true);
+  });
+  document.addEventListener('keydown', (ev) => {
+    if (!PV.open) return;
+    if (ev.key === 'Escape') closePhoto(); else if (ev.key === 'ArrowRight') pvGo(1); else if (ev.key === 'ArrowLeft') pvGo(-1);
+  });
+})();
+
 function openMedia(mediaId, e, dir) {
   const m = S.media[mediaId]; if (!m) return;
   // Every photo / clip on this note, so you can swipe between them.
@@ -1065,7 +1233,7 @@ function openMedia(mediaId, e, dir) {
     ${nav}
     <div class="sheetHead"><h3>${esc(e.title || 'Capture')}</h3></div>
     <div class="reader">${esc(e.body || '')}</div>
-    <div class="saveBar mvBar">${m.kind === 'video' ? `<button class="btn primary" id="mvPlay">${icon('i-play')}Play clip</button>` : ''}
+    <div class="saveBar mvBar">${m.kind === 'video' ? `<button class="btn primary" id="mvPlay">${icon('i-play')}Play clip</button>` : m.fileId ? `<button class="btn primary" id="mvBig">${icon('i-full')}View full size</button>` : ''}
       <button class="btn" id="mvDrive">${icon('i-drive')}Open in Drive</button></div>
     <div class="hint" style="margin-top:8px" id="mvHint">${m.kind === 'video' ? '' : 'Loading full size…'}</div>`;
   if (openSheets.indexOf('readSheet') < 0) openSheet('readSheet');
@@ -1111,7 +1279,10 @@ function openMedia(mediaId, e, dir) {
     $('mvHint').textContent = 'Not playing? Tap Open in Drive.';
   };
   if (m.kind === 'video') { $('mvPlay').onclick = play; $('mv').onclick = play; $('mv').classList.add('tapPlay'); }
+  else { const big = () => openPhoto(mediaId, e); $('mvBig').onclick = big; $('mv').onclick = big; $('mv').classList.add('tapZoom'); }
+  if (fullImg[mediaId]) { $('mvImg').src = fullImg[mediaId]; $('mvHint').textContent = ''; return; }
   api('mediaView', { id: mediaId }).then((r) => {
+    if (r.data && m.kind !== 'video') fullImg[mediaId] = 'data:' + r.mime + ';base64,' + r.data;
     if (!$('mv') || $('mv').dataset.id !== mediaId) return; // you've already swiped to another one
     if (r.data && $('mvImg')) $('mvImg').src = 'data:' + r.mime + ';base64,' + r.data;
     if (m.kind !== 'video' && $('mvHint')) $('mvHint').textContent = '';
