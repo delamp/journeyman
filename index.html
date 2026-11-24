@@ -119,6 +119,13 @@
   .thumb .play { position: absolute; inset: 0; display: grid; place-items: center; }
   .thumb .play span { width: 40px; height: 40px; border-radius: 99px; background: rgba(0,0,0,.55); display: grid; place-items: center; }
   .organizing { display: inline-flex; align-items: center; gap: 6px; color: var(--amber); font-size: 12px; }
+  .mvDesc { margin-top: 14px; font-size: 14.5px; line-height: 1.5; color: var(--ink2); }
+  .mvDesc .dCap { color: var(--ink); font-size: 16px; }
+  .mvDesc p { margin: 6px 0; }
+  .dMoments { list-style: none; padding: 0; margin: 8px 0; }
+  .dMoments li { display: flex; gap: 10px; padding: 3px 0; }
+  .dMoments li span { color: var(--amber2); font-variant-numeric: tabular-nums; min-width: 38px; font-weight: 600; }
+  .mvDesc .dOn { color: var(--ink3); font-size: 13px; }
   .dotPulse { width: 7px; height: 7px; border-radius: 99px; background: var(--amber); animation: pulse 1s infinite ease-in-out; }
   @keyframes pulse { 50% { opacity: .25; transform: scale(.7); } }
 
@@ -666,7 +673,8 @@ function renderGame() {
 function matches(e) {
   if (S.filter !== 'all' && e.type !== S.filter && !(S.filter === 'fav' && e.favorite)) return false;
   if (!S.search) return true;
-  const hay = [e.title, e.body, e.raw, (e.tags || []).join(' ')].join(' ').toLowerCase();
+  const descs = (e.mediaIds || []).map((id) => { const d = S.media[id] && S.media[id].desc; return d && d.caption ? [d.caption, d.summary, d.onScreen, (d.tags || []).join(' ')].join(' ') : ''; });
+  const hay = [e.title, e.body, e.raw, (e.tags || []).join(' ')].concat(descs).join(' ').toLowerCase();
   return S.search.toLowerCase().split(/\s+/).every((w) => hay.includes(w));
 }
 
@@ -996,6 +1004,8 @@ function openMedia(mediaId, e) {
     $('mvMove').onclick = () => { closeSheet('readSheet'); setTimeout(() => moveEntries([e], 'this capture'), 250); };
   }
   if (!m.fileId) { missingClip(m, e); return; } // a PS5 clip that isn't in Drive yet
+  $('mvHint').insertAdjacentHTML('afterend', '<div id="mvDesc" class="mvDesc"></div>');
+  renderDesc(m, e);
   const driveUrl = 'https://drive.google.com/file/d/' + m.fileId + '/view';
   $('mvDrive').onclick = () => window.open(driveUrl, '_blank');
   if ($('mvPlay')) $('mvPlay').onclick = () => window.open(driveUrl, '_blank');
@@ -1003,6 +1013,32 @@ function openMedia(mediaId, e) {
     if (r.data && $('mvImg')) $('mvImg').src = 'data:' + r.mime + ';base64,' + r.data;
     if (m.kind !== 'video' && $('mvHint')) $('mvHint').textContent = '';
   }).catch(() => { if ($('mvHint') && m.kind !== 'video') $('mvHint').textContent = ''; });
+}
+
+/** "What's in this?" — Gemini watches the clip / looks at the screenshot, only when tapped. */
+function renderDesc(m, e) {
+  const box = $('mvDesc'); if (!box) return;
+  const what = m.kind === 'video' ? 'clip' : 'screenshot';
+  const d = m.desc && m.desc.caption ? m.desc : null;
+  if (!d) {
+    box.innerHTML = `<button class="btn" id="mvDescribe" style="width:100%">✨ What’s in this ${what}?</button>`;
+  } else {
+    box.innerHTML = `<div class="label">What’s in this ${what}</div>
+      <b class="dCap">${esc(d.caption)}</b>${d.spoiler ? ' <span class="tag">spoiler</span>' : ''}
+      <p>${esc(d.summary)}</p>
+      ${(d.moments || []).length ? `<ul class="dMoments">${d.moments.map((x) => `<li><span>${esc(x.at)}</span>${esc(x.what)}</li>`).join('')}</ul>` : ''}
+      ${d.onScreen ? `<p class="dOn">On screen: ${esc(d.onScreen)}</p>` : ''}
+      ${(d.tags || []).length ? `<div class="ft">${d.tags.map((x) => `<span class="tag">#${esc(x)}</span>`).join('')}</div>` : ''}
+      <button class="btn small" id="mvDescribe" style="margin-top:10px">${icon('i-refresh', 'width:15px;height:15px')}Describe again</button>`;
+  }
+  $('mvDescribe').onclick = () => {
+    box.innerHTML = `<div class="hint"><span class="dotPulse"></span> ${m.kind === 'video' ? 'Gemini is watching the clip… (a minute or two for a long one)' : 'Gemini is looking at it…'}</div>`;
+    api('describeMedia', { id: m.id }).then((r) => {
+      Object.assign(m, r.media); S.media[m.id] = m;
+      if (r.entry) { Object.assign(e, r.entry); const h = $('readBody').querySelector('.sheetHead h3'); if (h) h.textContent = e.title; }
+      renderGame(); renderDesc(m, e);
+    }).catch((err) => { toast(errText(err), null, null, 6000); renderDesc(m, e); });
+  };
 }
 
 /**
@@ -1778,6 +1814,12 @@ const Demo = {
       case 'deleteEntry': d.entries = d.entries.filter((x) => x.id !== p.id); this.save(d); return wait({});
       case 'addMedia': { const m = { id: this.id(), gameId: p.gameId, fileId: 'demo', kind: p.kind || 'image', thumb: p.thumb, createdAt: now }; d.media.push(m); this.save(d); return wait({ media: m }, 500); }
       case 'mediaView': return wait({});
+      case 'describeMedia': { const m = d.media.find((x) => x.id === p.id);
+        m.desc = { caption: m.kind === 'video' ? 'Police chase ends off the pier' : 'Sunset over the Vice City skyline', summary: 'Demo description: the player swerves through traffic, loses two cruisers and launches the car off the end of the pier into the water.',
+          moments: m.kind === 'video' ? [{ at: '0:04', what: 'Wanted level jumps to three stars' }, { at: '0:21', what: 'Car clears the pier and hits the water' }] : [], onScreen: 'Wanted ★★★', tags: ['car chase', 'police'], spoiler: false };
+        const e = d.entries.find((x) => x.id === m.entryId); let entry = null;
+        if (e && e.kind === 'capture' && /^(Clip|Screenshot)$/.test(e.title)) { e.title = m.desc.caption; entry = e; }
+        this.save(d); return wait({ media: m, entry }, 1500); }
       case 'fetchClip': { const m = d.media.find((x) => x.id === p.id); // demo: the first look says "processing", the next "ready"
         if (!m.fileId && m._demoChecked) { m.fileId = 'demo-ready'; this.save(d); return wait({ media: m, status: 'ready' }, 1200); }
         m._demoChecked = 1; this.save(d); return wait({ media: m, status: m.fileId ? 'ready' : 'processing' }, 900); }
