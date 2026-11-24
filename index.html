@@ -188,6 +188,11 @@
   .pcap .tick svg.i { width: 13px; height: 13px; stroke-width: 3; }
   .psnLine { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink3); margin: -12px 4px 18px; }
   .psnLine.warn { color: var(--amber); }
+  .driveGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .driveVid { text-align: left; background: var(--card); border-radius: 14px; padding: 6px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .driveVid .dv { aspect-ratio: 16/9; border-radius: 10px; background: var(--card2) center/cover; display: grid; place-items: center; font-size: 22px; }
+  .driveVid b { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .driveVid small { font-size: 11.5px; color: var(--ink3); }
   .watching { display: inline-flex; align-items: center; gap: 6px; color: var(--teal); font-size: 12px; }
   .entry.capture .bd { color: var(--ink3); font-style: italic; }
   .label { font: 600 11px/1 Inter; letter-spacing: .12em; text-transform: uppercase; color: var(--ink3); margin: 16px 2px 8px; }
@@ -990,13 +995,35 @@ function openMedia(mediaId, e) {
     $('mvTalk').onclick = () => { closeSheet('readSheet'); setTimeout(() => talkAbout(e), 250); };
     $('mvMove').onclick = () => { closeSheet('readSheet'); setTimeout(() => moveEntries([e], 'this capture'), 250); };
   }
-  if (!m.fileId) { // a PS5 clip PlayStation hasn't finished processing, so it couldn't be copied yet
-    $('mvDrive').remove(); if ($('mvPlay')) $('mvPlay').remove();
-    const left = m.takenAt ? Math.max(0, 14 - Math.floor((Date.now() - new Date(m.takenAt)) / 864e5)) : null;
-    $('mvHint').innerHTML = `<b>PlayStation hasn’t finished processing this clip</b>, so it couldn’t be copied to Drive yet. Journeyman keeps checking and grabs it as soon as it’s ready.<br><br>
-      Don’t want to wait? In the <b>PlayStation App</b> open the clip and <b>download it to your phone</b>, then tap below and pick it. It uploads straight to your Drive (any size).${left !== null ? ` It stays in the PlayStation App for about ${left} more day${left === 1 ? '' : 's'}.` : ''}
-      <button class="btn primary" id="mvFill" style="width:100%;margin-top:12px">${icon('i-photo')}Add the video from my phone</button>
-      <input type="file" id="mvIn" accept="video/*" hidden>`;
+  if (!m.fileId) { missingClip(m, e); return; } // a PS5 clip that isn't in Drive yet
+  const driveUrl = 'https://drive.google.com/file/d/' + m.fileId + '/view';
+  $('mvDrive').onclick = () => window.open(driveUrl, '_blank');
+  if ($('mvPlay')) $('mvPlay').onclick = () => window.open(driveUrl, '_blank');
+  api('mediaView', { id: mediaId }).then((r) => {
+    if (r.data && $('mvImg')) $('mvImg').src = 'data:' + r.mime + ';base64,' + r.data;
+    if (m.kind !== 'video' && $('mvHint')) $('mvHint').textContent = '';
+  }).catch(() => { if ($('mvHint') && m.kind !== 'video') $('mvHint').textContent = ''; });
+}
+
+/**
+ * A PS5 clip that isn't in Drive yet. First ask PlayStation about this clip right now: if it's finished processing,
+ * it's copied on the spot and opens. Otherwise you can pick the video from your Drive or from your phone.
+ */
+function missingClip(m, e) {
+  $('mvDrive').remove(); if ($('mvPlay')) $('mvPlay').remove();
+  const hint = $('mvHint');
+  const daysLeft = (at) => { const t = at ? new Date(at) : m.takenAt ? new Date(new Date(m.takenAt).getTime() + 14 * 864e5) : null; return t ? Math.max(0, Math.ceil((t - Date.now()) / 864e5)) : null; };
+  const filled = (r, how) => { Object.assign(m, r.media); S.media[m.id] = m; toast(how); renderGame(); if (openSheets.indexOf('readSheet') >= 0) openMedia(m.id, e); };
+  const choices = (headline, at) => {
+    const left = daysLeft(at);
+    hint.innerHTML = `${headline}<br><br>Have it already? Link it here:
+      <button class="btn primary" id="mvFromDrive" style="width:100%;margin-top:10px">${icon('i-drive')}Pick from Drive</button>
+      <button class="btn" id="mvFill" style="width:100%;margin-top:8px">${icon('i-photo')}Add from my phone</button>
+      <button class="btn small" id="mvRecheck" style="margin-top:10px">${icon('i-refresh', 'width:15px;height:15px')}Check PlayStation again</button>
+      <input type="file" id="mvIn" accept="video/*" hidden>
+      ${left !== null ? `<div style="margin-top:10px;color:var(--ink3)">PlayStation keeps it about ${left} more day${left === 1 ? '' : 's'}.</div>` : ''}`;
+    $('mvRecheck').onclick = check;
+    $('mvFromDrive').onclick = pickFromDrive;
     $('mvFill').onclick = () => $('mvIn').click();
     $('mvIn').onchange = () => {
       const f = $('mvIn').files[0]; $('mvIn').value = '';
@@ -1006,18 +1033,39 @@ function openMedia(mediaId, e) {
       const pct = (p) => { const b = $('mvFill'); if (b) b.lastChild.textContent = 'Uploading… ' + p + '%'; };
       (DEMO ? Promise.resolve('demo-' + Date.now()) : fileToDrive(m.gameId || S.game.id, f, pct))
         .then((fileId) => api('fillMedia', { id: m.id, fileId }))
-        .then((r) => { Object.assign(m, r.media); done(); toast('📸 Clip saved to your Drive'); openMedia(m.id, e); renderGame(); })
+        .then((r) => { done(); filled(r, '📸 Clip saved to your Drive'); })
         .catch((err) => { done(); toast('Upload failed: ' + errText(err), null, null, 6000); });
     };
-    return;
-  }
-  const driveUrl = 'https://drive.google.com/file/d/' + m.fileId + '/view';
-  $('mvDrive').onclick = () => window.open(driveUrl, '_blank');
-  if ($('mvPlay')) $('mvPlay').onclick = () => window.open(driveUrl, '_blank');
-  api('mediaView', { id: mediaId }).then((r) => {
-    if (r.data && $('mvImg')) $('mvImg').src = 'data:' + r.mime + ';base64,' + r.data;
-    if (m.kind !== 'video' && $('mvHint')) $('mvHint').textContent = '';
-  }).catch(() => { if ($('mvHint') && m.kind !== 'video') $('mvHint').textContent = ''; });
+  };
+  const check = () => {
+    hint.innerHTML = `<span class="dotPulse"></span> Checking PlayStation for this clip… (copying a clip can take up to a minute)`;
+    api('fetchClip', { id: m.id }).then((r) => {
+      if (r.status === 'ready') return filled(r, '🎬 Got it: the clip is in your Drive now');
+      if (r.status === 'processing') return choices(`<b>PlayStation is still processing this clip.</b> That can take a day or two; Journeyman grabs it automatically when it’s done.`, r.expiresAt);
+      if (r.status === 'gone') return choices(`<b>This clip is no longer in PlayStation’s cloud</b> (it keeps captures about 14 days). If you saved it somewhere, link it below.`, null);
+      choices(`<b>Couldn’t copy it from PlayStation just now</b> (${esc(r.why || 'unknown reason')}). Try again in a bit.`, r.expiresAt);
+    }).catch((err) => choices(`<b>Couldn’t reach PlayStation</b> (${esc(errText(err))}).`, null));
+  };
+  const pickFromDrive = () => {
+    hint.innerHTML = `<span class="dotPulse"></span> Loading your recent Drive videos…`;
+    api('driveVideos', {}).then((r) => {
+      const vids = r.videos || [];
+      if (!vids.length) return choices(`<b>No recent videos in your Drive</b> that aren’t already in Journeyman.`, null);
+      hint.innerHTML = `<b>Pick the clip</b> <span style="color:var(--ink3)">(your newest Drive videos)</span>
+        <div class="driveGrid">${vids.map((v) => `<button class="driveVid" data-fid="${esc(v.id)}">
+          <div class="dv" style="background-image:url('${v.thumb || ''}')">${v.thumb ? '' : '🎬'}</div>
+          <b>${esc(v.name)}</b><small>${esc(ago(v.at))} · ${Math.round((v.size || 0) / 1048576)} MB</small></button>`).join('')}</div>
+        <button class="btn small" id="mvBack" style="margin-top:10px">Back</button>`;
+      $('mvBack').onclick = check;
+      hint.querySelectorAll('[data-fid]').forEach((b) => b.onclick = () => {
+        hint.innerHTML = `<span class="dotPulse"></span> Linking it…`;
+        api('fillMedia', { id: m.id, fileId: b.dataset.fid, fromDrive: true })
+          .then((r2) => filled(r2, '🎬 Linked from your Drive'))
+          .catch((err) => { toast(errText(err)); pickFromDrive(); });
+      });
+    }).catch((err) => choices(`<b>Couldn’t load your Drive videos</b> (${esc(errText(err))}).`, null));
+  };
+  check();
 }
 
 function openPage(p) {
@@ -1730,6 +1778,11 @@ const Demo = {
       case 'deleteEntry': d.entries = d.entries.filter((x) => x.id !== p.id); this.save(d); return wait({});
       case 'addMedia': { const m = { id: this.id(), gameId: p.gameId, fileId: 'demo', kind: p.kind || 'image', thumb: p.thumb, createdAt: now }; d.media.push(m); this.save(d); return wait({ media: m }, 500); }
       case 'mediaView': return wait({});
+      case 'fetchClip': { const m = d.media.find((x) => x.id === p.id); // demo: the first look says "processing", the next "ready"
+        if (!m.fileId && m._demoChecked) { m.fileId = 'demo-ready'; this.save(d); return wait({ media: m, status: 'ready' }, 1200); }
+        m._demoChecked = 1; this.save(d); return wait({ media: m, status: m.fileId ? 'ready' : 'processing' }, 900); }
+      case 'driveVideos': return wait({ videos: [1, 2, 3].map((i) => ({ id: 'dv' + i, name: 'GTA VI clip ' + i + '.mp4', size: (30 + i * 12) * 1048576,
+        at: new Date(Date.now() - i * 3600e3).toISOString(), thumb: this.fakeCap(null, '').thumb })) }, 800);
       case 'fillMedia': { const m = d.media.find((x) => x.id === p.id); m.fileId = p.fileId; this.save(d); return wait({ media: m }, 600); }
       case 'writePage': case 'recap': case 'chronicle': {
         const es = action === 'writePage' ? d.entries.filter((e) => (p.entryIds || []).includes(e.id)) : byGame(d.entries);
