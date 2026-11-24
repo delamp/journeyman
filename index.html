@@ -226,6 +226,18 @@
   .viewer.playing { display: block; height: clamp(320px, 62vw, 72vh); }
   .viewer.playing:fullscreen { height: 100%; border-radius: 0; margin: 0; }
   .viewer iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .viewer.slideL { animation: mvInL .22s ease-out; }
+  .viewer.slideR { animation: mvInR .22s ease-out; }
+  @keyframes mvInL { from { transform: translateX(40px); opacity: .3; } }
+  @keyframes mvInR { from { transform: translateX(-40px); opacity: .3; } }
+  .mvNav { display: flex; align-items: center; gap: 8px; margin: -6px 0 10px; }
+  .mvArrow { flex: 0 0 48px; height: 44px; border-radius: 12px; border: 1px solid var(--line, rgba(127,127,127,.3)); background: transparent; color: inherit; font-size: 28px; line-height: 1; cursor: pointer; }
+  .mvArrow:disabled { opacity: .25; }
+  .mvDots { flex: 1; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; }
+  .mvDots span { width: 8px; height: 8px; border-radius: 99px; background: currentColor; opacity: .25; }
+  .mvDots span.vid { border-radius: 2px; }
+  .mvDots span.on { opacity: 1; transform: scale(1.25); }
+  .mvDots b { width: 100%; text-align: center; font-size: 13px; font-weight: 600; opacity: .7; }
   .mvBar { flex-wrap: wrap; }
   .mvBar .btn { flex: 1 1 calc(50% - 5px); min-width: 0; height: auto; min-height: 50px; padding: 8px 12px; line-height: 1.2; text-align: center; font-size: 15px; }
   .mvBar .btn svg { flex: 0 0 auto; }
@@ -528,16 +540,22 @@ document.addEventListener('fullscreenchange', () => {
 
 // Swipe a sheet down to close it: grab the handle anywhere, or pull down on the sheet when it's scrolled to the top.
 document.querySelectorAll('.sheet').forEach((sh) => {
-  let y0 = 0, t0 = 0, dy = 0, dragging = false, fromGrab = false;
+  let x0 = 0, y0 = 0, t0 = 0, dy = 0, dragging = false, fromGrab = false, decided = false;
   sh.addEventListener('touchstart', (ev) => {
     if (ev.touches.length !== 1 || ev.target.closest('input, textarea, select, iframe, .driveGrid')) return;
     fromGrab = !!ev.target.closest('.grab');
     if (!fromGrab && sh.scrollTop > 0) return;
-    y0 = ev.touches[0].clientY; t0 = Date.now(); dy = 0; dragging = true;
+    x0 = ev.touches[0].clientX; y0 = ev.touches[0].clientY; t0 = Date.now(); dy = 0; dragging = true; decided = false;
   }, { passive: true });
   sh.addEventListener('touchmove', (ev) => {
     if (!dragging) return;
     dy = ev.touches[0].clientY - y0;
+    if (!decided) { // a sideways swipe (flipping between clips) never pulls the sheet
+      const dx = ev.touches[0].clientX - x0;
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      decided = true;
+      if (Math.abs(dx) > Math.abs(dy)) { dragging = false; dy = 0; return; }
+    }
     if (dy <= 0 || (!fromGrab && sh.scrollTop > 0)) { dy = 0; sh.style.transform = ''; return; }
     ev.preventDefault(); // pull the sheet, not the page
     sh.style.transition = 'none';
@@ -1033,15 +1051,37 @@ function deleteEntry(e) {
   setTimeout(() => { if (!undone) api('deleteEntry', { id: e.id }).catch((err) => toast(errText(err))); }, 4700);
 }
 
-function openMedia(mediaId, e) {
+function openMedia(mediaId, e, dir) {
   const m = S.media[mediaId]; if (!m) return;
-  $('readBody').innerHTML = `<div class="viewer" id="mv"><img src="${m.thumb || ''}" alt="" id="mvImg"></div>
+  // Every photo / clip on this note, so you can swipe between them.
+  const list = (e.mediaIds || []).filter((id) => S.media[id]);
+  const at = list.indexOf(mediaId);
+  const multi = list.length > 1 && at >= 0;
+  const nav = multi ? `<div class="mvNav">
+      <button class="mvArrow" id="mvPrev" aria-label="Previous"${at === 0 ? ' disabled' : ''}>‹</button>
+      <div class="mvDots">${list.map((id, i) => `<span class="${i === at ? 'on' : ''}${S.media[id].kind === 'video' ? ' vid' : ''}"></span>`).join('')}<b>${at + 1} of ${list.length}</b></div>
+      <button class="mvArrow" id="mvNext" aria-label="Next"${at === list.length - 1 ? ' disabled' : ''}>›</button></div>` : '';
+  $('readBody').innerHTML = `<div class="viewer${dir ? ' slide' + (dir > 0 ? 'L' : 'R') : ''}" id="mv" data-id="${esc(mediaId)}"><img src="${m.thumb || ''}" alt="" id="mvImg"></div>
+    ${nav}
     <div class="sheetHead"><h3>${esc(e.title || 'Capture')}</h3></div>
     <div class="reader">${esc(e.body || '')}</div>
     <div class="saveBar mvBar">${m.kind === 'video' ? `<button class="btn primary" id="mvPlay">${icon('i-play')}Play clip</button>` : ''}
       <button class="btn" id="mvDrive">${icon('i-drive')}Open in Drive</button></div>
     <div class="hint" style="margin-top:8px" id="mvHint">${m.kind === 'video' ? '' : 'Loading full size…'}</div>`;
   if (openSheets.indexOf('readSheet') < 0) openSheet('readSheet');
+  if (multi) {
+    const go = (step) => { const j = at + step; if (j < 0 || j >= list.length) return; openMedia(list[j], e, step); };
+    $('mvPrev').onclick = () => go(-1);
+    $('mvNext').onclick = () => go(1);
+    // Swipe left / right on the picture (before a clip starts playing; once it plays, use the arrows).
+    const v = $('mv'); let x0 = null, y0 = 0;
+    v.addEventListener('touchstart', (ev) => { if (ev.touches.length === 1) { x0 = ev.touches[0].clientX; y0 = ev.touches[0].clientY; } }, { passive: true });
+    v.addEventListener('touchend', (ev) => {
+      if (x0 === null) return;
+      const t = ev.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) { go(dx < 0 ? 1 : -1); }
+    });
+  }
   if (e.kind === 'capture') {
     $('readBody').querySelector('.reader').innerHTML = '';
     $('readBody').querySelector('.saveBar').insertAdjacentHTML('afterbegin', `<button class="btn primary" id="mvTalk">${icon('i-mic')}Talk about it</button>`);
@@ -1072,6 +1112,7 @@ function openMedia(mediaId, e) {
   };
   if (m.kind === 'video') { $('mvPlay').onclick = play; $('mv').onclick = play; $('mv').classList.add('tapPlay'); }
   api('mediaView', { id: mediaId }).then((r) => {
+    if (!$('mv') || $('mv').dataset.id !== mediaId) return; // you've already swiped to another one
     if (r.data && $('mvImg')) $('mvImg').src = 'data:' + r.mime + ';base64,' + r.data;
     if (m.kind !== 'video' && $('mvHint')) $('mvHint').textContent = '';
   }).catch(() => { if ($('mvHint') && m.kind !== 'video') $('mvHint').textContent = ''; });
