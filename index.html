@@ -713,6 +713,7 @@ function loadGame() {
     if (!S.game || S.game.id !== id) return;
     S.game = Object.assign({}, S.game, r.game);
     S.entries = r.entries || [];
+    S.entries.forEach((en) => { if (en.mediaIds) en.mediaIds = en.mediaIds.filter((x, i, a) => a.indexOf(x) === i); }); // never show a capture twice
     S.media = {}; (r.media || []).forEach((m) => S.media[m.id] = m);
     S.pages = r.pages || [];
     // Notes still waiting to sync show up too.
@@ -1117,7 +1118,7 @@ function pvShow(i, dir) {
 }
 function openPhoto(mediaId, e) {
   // Flip through just this note's screenshots (clips play in the drawer).
-  const list = (e.mediaIds || []).filter((id) => S.media[id] && S.media[id].kind !== 'video' && S.media[id].fileId);
+  const list = (e.mediaIds || []).filter((id, i, a) => S.media[id] && S.media[id].kind !== 'video' && S.media[id].fileId && a.indexOf(id) === i);
   if (list.indexOf(mediaId) < 0) list.unshift(mediaId);
   Object.assign(PV, { open: true, list, e });
   $('photoView').hidden = false;
@@ -1222,7 +1223,7 @@ document.addEventListener('fullscreenchange', () => { if (PV.open) { PV.s = 1; P
 function openMedia(mediaId, e, dir) {
   const m = S.media[mediaId]; if (!m) return;
   // Every photo / clip on this note, so you can swipe between them.
-  const list = (e.mediaIds || []).filter((id) => S.media[id]);
+  const list = (e.mediaIds || []).filter((id, i, a) => S.media[id] && a.indexOf(id) === i);
   const at = list.indexOf(mediaId);
   const multi = list.length > 1 && at >= 0;
   const nav = multi ? `<div class="mvNav">
@@ -1323,7 +1324,7 @@ function missingClip(m, e) {
   $('mvDrive').remove(); if ($('mvPlay')) $('mvPlay').remove();
   const hint = $('mvHint');
   const daysLeft = (at) => { const t = at ? new Date(at) : m.takenAt ? new Date(new Date(m.takenAt).getTime() + 14 * 864e5) : null; return t ? Math.max(0, Math.ceil((t - Date.now()) / 864e5)) : null; };
-  const filled = (r, how) => { Object.assign(m, r.media); S.media[m.id] = m; toast(how); renderGame(); if (openSheets.indexOf('readSheet') >= 0) openMedia(m.id, e); };
+  const filled = (r, how) => { Object.assign(m, r.media); S.media[m.id] = m; toast(how); renderGame(); if (openSheets.indexOf('readSheet') >= 0 && $('mv') && $('mv').dataset.id === m.id) openMedia(m.id, e); };
   const choices = (headline, at) => {
     const left = daysLeft(at);
     hint.innerHTML = `${headline}<br><br>Have it already? Link it here:
