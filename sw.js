@@ -1,7 +1,7 @@
 ﻿// Journeyman's offline helper. It keeps a copy of the app so it opens without signal, and it catches
 // screenshots / clips shared in from other apps (Gallery, PlayStation / Xbox app) and hands them to the page.
 // Your notes and media always come live from your Google backend.
-const CACHE = 'journeyman-v16';
+const CACHE = 'journeyman-v17';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -31,7 +31,7 @@ self.addEventListener('fetch', (event) => {
         for (const f of files) {
           await box.put('./shared/' + (i++), new Response(f, { headers: { 'content-type': f.type, 'x-name': encodeURIComponent(f.name || 'shared') } }));
         }
-        const text = [form.get('title'), form.get('text'), form.get('url')].filter(Boolean).join(' â€” ');
+        const text = [form.get('title'), form.get('text'), form.get('url')].filter(Boolean).join(' — ');
         if (text) await box.put('./shared/text', new Response(new Blob([text], { type: 'text/plain' }), { headers: { 'x-name': '__text__' } }));
       } catch (e) { /* open the app anyway */ }
       return Response.redirect('./?shared=1', 303);

@@ -160,6 +160,8 @@
   .scrim.show { opacity: 1; pointer-events: auto; }
   .sheet { position: fixed; z-index: 41; left: 0; right: 0; bottom: 0; max-height: 92vh; overflow-y: auto; background: var(--bg2); border-radius: 26px 26px 0 0; padding: 10px 18px calc(22px + var(--safeB)); transform: translateY(105%); transition: transform .28s cubic-bezier(.2,.8,.2,1); max-width: 720px; margin: 0 auto; }
   .sheet.show { transform: none; }
+  .sheet:not(.show) { pointer-events: none; } /* no stray taps on a sheet that's sliding away */
+  .linkBtn { background: none; border: 0; padding: 0 2px; color: var(--amber); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
   /* The handle: a wide, sticky strip at the top of each sheet so there's always something to grab and swipe down. */
   .grab { position: sticky; top: -10px; z-index: 3; height: 30px; margin: -10px -18px 6px; background: var(--bg2); border-radius: 26px 26px 0 0; touch-action: none; cursor: grab; }
   .grab::before { content: ''; position: absolute; left: 50%; top: 12px; width: 46px; height: 5px; margin-left: -23px; border-radius: 9px; background: var(--ink3); opacity: .7; }
@@ -482,21 +484,29 @@ if (location.hash) history.replaceState(null, '', location.pathname + location.s
 // API (real backend, or the demo backend below)
 // ====================================================================================
 let queue = Promise.resolve();
+// A stuck request gives up instead of holding up everything behind it (a saved note is retried later).
+const API_TIMEOUT = { addNote: 120000, library: 45000, game: 45000, mediaView: 45000, recentCaptures: 60000 };
 function api(action, params) {
   if (DEMO) return Demo.call(action, params || {});
-  const run = () => fetch(API, {
-    method: 'POST', redirect: 'follow',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // "simple" request: no CORS preflight
-    body: JSON.stringify(Object.assign({ k: KEY, action }, params || {})),
-  }).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+  const run = () => {
+    const ctl = window.AbortController ? new AbortController() : null;
+    const ms = API_TIMEOUT[action];
+    const timer = ctl && ms ? setTimeout(() => ctl.abort(), ms) : 0;
+    return fetch(API, {
+      method: 'POST', redirect: 'follow', signal: ctl ? ctl.signal : undefined,
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // "simple" request: no CORS preflight
+      body: JSON.stringify(Object.assign({ k: KEY, action }, params || {})),
+    }).then((r) => { clearTimeout(timer); return r; }, (e) => { clearTimeout(timer); throw e.name === 'AbortError' ? new Error('NetworkError: timed out') : e; })
+      .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
     .then((t) => {
       if (t.trim() === 'Not authorized') throw new Error('auth');
       const r = JSON.parse(t);
       if (!r.ok) throw new Error(r.error || 'Something went wrong.');
       return r;
     });
-  // Writes go one at a time so quick taps land in order; reads don't wait.
-  if (/^(library|game|mediaView|syncCaptures|recentCaptures)$/.test(action)) return run();
+  };
+  // Writes go one at a time so quick taps land in order; reads (and slow, independent jobs) don't wait.
+  if (/^(library|game|mediaView|syncCaptures|recentCaptures|fetchClip|describeMedia|driveVideos|ask|writePage|recap|chronicle)$/.test(action)) return run();
   const p = queue.then(run, run);
   queue = p.catch(() => {});
   return p;
@@ -525,11 +535,14 @@ const psnOn = () => !!(S.psn && S.psn.connected);
 // Toast
 // ====================================================================================
 let toastTimer;
-function toast(msg, action, fn, ms) {
+let toastHold = 0; // an Undo toast isn't knocked off screen by a passing message
+function toast(msg, action, fn, ms, hold) {
+  if (!hold && Date.now() < toastHold) return;
+  toastHold = hold ? Date.now() + (ms || 3000) : 0;
   $('toastMsg').textContent = msg;
   const b = $('toastBtn');
   b.hidden = !action; b.textContent = action || '';
-  b.onclick = () => { hideToast(); fn && fn(); };
+  b.onclick = () => { toastHold = 0; hideToast(); fn && fn(); };
   $('toast').classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(hideToast, ms || 3000);
@@ -553,8 +566,18 @@ function openSheet(id) {
 function closeSheet(id, fromPop) {
   const i = openSheets.indexOf(id);
   if (i < 0) return;
+  if (id === 'capSheet' && cap.uploading) { // closing now would hide an upload failure
+    toast('Still uploading — hang on a moment.');
+    if (fromPop) history.pushState({ sheet: id }, ''); // the back press already used up its history step
+    return;
+  }
+  if (id === 'readSheet' && readDirty && readDirty() && !confirm('Discard your changes to this note?')) {
+    if (fromPop) history.pushState({ sheet: id }, '');
+    return;
+  }
   openSheets.splice(i, 1);
   $(id).classList.remove('show');
+  if (id === 'readSheet') { const f = $('readBody').querySelector('iframe'); if (f) f.remove(); readDirty = null; } // stop a playing clip
   if (!openSheets.length) $('scrim').classList.remove('show');
   if (!fromPop) goBack();
   if (id === 'capSheet' || id === 'readSheet') stopListening();
@@ -598,7 +621,7 @@ document.querySelectorAll('.sheet').forEach((sh) => {
     dy = 0;
   };
   sh.addEventListener('touchend', end);
-  sh.addEventListener('touchcancel', end);
+  sh.addEventListener('touchcancel', () => { dragging = false; dy = 0; sh.style.transition = ''; sh.style.transform = ''; }); // an interrupted pull never closes it
 });
 window.addEventListener('popstate', () => {
   if (skipPop) { skipPop--; return; }
@@ -699,8 +722,10 @@ function openGame(id) {
   S.entries = []; S.pages = []; S.media = {};
   S.tab = 'journal'; S.filter = 'all'; S.search = '';
   setCurrent(id);
+  // Going from one journal straight to another (after Move / Merge) replaces the step, so Back still means "library".
+  const already = !$('gameView').hidden;
   $('libView').hidden = true; $('gameView').hidden = false;
-  history.pushState({ game: id }, '');
+  if (already) history.replaceState({ game: id }, ''); else history.pushState({ game: id }, '');
   window.scrollTo(0, 0);
   renderGameHead();
   $('gBody').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
@@ -712,12 +737,15 @@ function loadGame() {
   return api('game', { id }).then((r) => {
     if (!S.game || S.game.id !== id) return;
     S.game = Object.assign({}, S.game, r.game);
-    S.entries = r.entries || [];
+    S.entries = (r.entries || []).filter((en) => !deleting[en.id]);
     S.entries.forEach((en) => { if (en.mediaIds) en.mediaIds = en.mediaIds.filter((x, i, a) => a.indexOf(x) === i); }); // never show a capture twice
     S.media = {}; (r.media || []).forEach((m) => S.media[m.id] = m);
     S.pages = r.pages || [];
     // Notes still waiting to sync show up too.
-    store.get('jmQueue', []).filter((q) => q.gameId === id).forEach((q) => S.entries.push(queuedEntry(q)));
+    store.get('jmQueue', []).filter((q) => q.gameId === id).forEach((q) => {
+      if (S.entries.some((en) => en.clientId === q.clientId)) { if (!inflight[q.clientId]) unqueueNote(q.clientId); return; } // it did reach the journal
+      S.entries.push(inflight[q.clientId] ? Object.assign(queuedEntry(q), { _queued: false, aiStatus: 'pending' }) : queuedEntry(q));
+    });
     renderGameHead(); renderGame();
   }).catch((e) => { $('gBody').innerHTML = `<div class="empty"><p>${esc(errText(e))}</p></div>`; });
 }
@@ -942,7 +970,12 @@ function openEntry(e) {
 }
 
 // Edit a saved note: its words (the tidy version and what you actually said), come-back item, tags, and its photos/clips.
+let editSeq = 0;
+let readDirty = null; // set while the Edit screen has changes that would be lost by closing it
 function editEntry(e) {
+  e = live(e);
+  const tok = String(++editSeq);
+  const mine = () => openSheets.indexOf('readSheet') >= 0 && $('edAtts') && $('edAtts').dataset.tok === tok; // still this note's Edit screen?
   const media = () => (e.mediaIds || []).map((id) => S.media[id]).filter(Boolean);
   $('readBody').innerHTML = `<div class="sheetHead"><h3>Edit note</h3></div>
     <div class="label" style="margin-top:4px">Title</div>
@@ -966,7 +999,9 @@ function editEntry(e) {
     <input type="file" id="edIn" accept="image/*,video/*" multiple hidden>
     <div class="psnRow" id="edPsn" style="margin-top:10px" hidden></div>
     <div class="saveBar"><button class="btn" id="edCancel">Cancel</button><button class="btn primary" id="edSave">Save</button></div>`;
+  $('edAtts').dataset.tok = tok;
   const drawAtts = () => {
+    if (!mine()) return;
     $('edAtts').innerHTML = media().map((m) => `<div class="att" style="background-image:url('${m.thumb || ''}')">${m.kind === 'video' ? '<span class="vid">CLIP</span>' : ''}
       <button class="x" data-rm="${esc(m.id)}" aria-label="Remove">${icon('i-x')}</button></div>`).join('') || '<div class="hint">None yet.</div>';
     $('edAtts').querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => {
@@ -974,7 +1009,8 @@ function editEntry(e) {
       const msg = m.source === 'psn' ? 'Take this PS5 capture off the note? It stays in your timeline on its own.' : 'Remove this photo/clip? It goes to your Drive trash.';
       if (!confirm(msg)) return;
       api('detachMedia', { id: e.id, mediaId: m.id }).then((r) => {
-        if (r.entry) Object.assign(e, r.entry);
+        e = live(e);
+        if (r.entry) Object.assign(e, r.entry); else S.entries = S.entries.filter((x) => x.id !== e.id);
         if (r.capture) S.entries.push(r.capture);
         if (m.source !== 'psn') delete S.media[m.id];
         drawAtts(); renderGame();
@@ -990,7 +1026,7 @@ function editEntry(e) {
     return Math.abs(m) < 1 ? 'same time' : Math.abs(m) + ' min ' + (m < 0 ? 'before' : 'after');
   };
   const drawPs = () => {
-    const box = $('edPsn'); if (!box) return;
+    const box = $('edPsn'); if (!box || !mine()) return;
     box.hidden = !psnOn(); if (box.hidden) return;
     const btn = `<button class="btn small" id="edPsnCheck" style="flex:none">${icon('i-refresh', 'width:15px;height:15px')}Check PS5 now</button>`;
     const head = ps.loading ? `<span><span class="dotPulse"></span> Checking your PS5…</span>`
@@ -1003,7 +1039,7 @@ function editEntry(e) {
     box.querySelectorAll('[data-add]').forEach((b) => b.onclick = () => {
       const id = b.dataset.add; b.disabled = true;
       api('attachMedia', { id: e.id, mediaIds: [id] }).then((r) => {
-        Object.assign(e, r.entry);
+        e = live(e); Object.assign(e, r.entry);
         ps.items = ps.items.filter((x) => x.id !== id);
         // It may have been sitting on its own as a capture entry: that entry is gone now.
         S.entries = S.entries.filter((x) => !(x.kind === 'capture' && (x.mediaIds || []).length === 1 && x.mediaIds[0] === id));
@@ -1032,7 +1068,7 @@ function editEntry(e) {
     Promise.all(files.map((file) => makeThumb(file, 360, 40000).catch(() => '').then((thumb) => ({ file, kind: /^video\//.test(file.type) ? 'video' : 'image', thumb }))))
       .then((items) => uploadAll(e.gameId, items))
       .then((ids) => api('attachMedia', { id: e.id, mediaIds: ids }))
-      .then((r) => { Object.assign(e, r.entry); drawAtts(); renderGame(); toast('Added'); })
+      .then((r) => { e = live(e); Object.assign(e, r.entry); drawAtts(); renderGame(); toast('Added'); })
       .catch((err) => toast('Upload failed: ' + errText(err))).then(done);
   };
   const fields = () => {
@@ -1041,18 +1077,27 @@ function editEntry(e) {
     if (patch.revisitWhat && !e.revisit) patch.revisit = true;
     return patch;
   };
+  const start = JSON.stringify(fields());
+  readDirty = () => mine() && JSON.stringify(fields()) !== start;
   $('edRetidy').onclick = () => {
     const raw = $('edRaw').value.trim();
     if (!raw) return hint('Say or type something first.', true);
     stopListening();
-    closeSheet('readSheet');
-    e.raw = raw; retidy(e, raw);
+    // Keep the come-back item and tags you typed; the tidy-up rewrites the title and entry from what you said.
+    const f = fields(); const keepPatch = { revisitWhat: f.revisitWhat, tags: f.tags }; if (f.revisit) keepPatch.revisit = true;
+    readDirty = null; closeSheet('readSheet');
+    if (keepPatch.revisitWhat !== (e.revisitWhat || '') || keepPatch.tags.join() !== (e.tags || []).join()) patchEntry(e, keepPatch);
+    e = live(e); e.raw = raw; retidy(e, raw);
   };
-  $('edCancel').onclick = () => { stopListening(); closeSheet('readSheet'); };
-  $('edSave').onclick = () => { stopListening(); patchEntry(e, fields(), 'Saved'); closeSheet('readSheet'); };
+  $('edCancel').onclick = () => { stopListening(); readDirty = null; closeSheet('readSheet'); };
+  $('edSave').onclick = () => { stopListening(); const f = fields(); readDirty = null; closeSheet('readSheet'); patchEntry(e, f, 'Saved'); };
 }
 
+// The note as it is on screen now: a background reload (PS5 check, sync) replaces every note object.
+function live(e) { return (e && S.entries.find((x) => x.id === e.id)) || e; }
+
 function patchEntry(e, patch, msg) {
+  e = live(e);
   const before = Object.assign({}, e);
   Object.assign(e, patch);
   renderGameHead(); renderGame();
@@ -1061,23 +1106,34 @@ function patchEntry(e, patch, msg) {
 }
 
 function retidy(e, raw) {
+  e = live(e);
   e.aiStatus = 'pending'; renderGame();
-  api('reorganize', raw ? { id: e.id, raw } : { id: e.id }).then((r) => { Object.assign(e, r.entry); renderGameHead(); renderGame(); toast('Re-tidied'); })
-    .catch((err) => { e.aiStatus = 'failed'; renderGame(); toast(errText(err)); });
+  api('reorganize', raw ? { id: e.id, raw } : { id: e.id }).then((r) => { e = live(e); Object.assign(e, r.entry); renderGameHead(); renderGame(); toast('Re-tidied'); })
+    .catch((err) => { e = live(e); e.aiStatus = 'failed'; renderGame(); toast(errText(err)); });
 }
 
+const deleting = {}; // notes in their Undo window: a reload mustn't bring them back
 function deleteEntry(e) {
   closeSheet('readSheet');
+  e = live(e);
   if (e._queued) {
-    store.set('jmQueue', store.get('jmQueue', []).filter((q) => q.clientId !== e.clientId));
-    S.entries = S.entries.filter((x) => x !== e); renderGameHead(); renderGame(); return;
+    unqueueNote(e.clientId);
+    S.entries = S.entries.filter((x) => x.id !== e.id); renderGameHead(); renderGame(); return;
   }
   // Undo window first; delete for real after it closes.
-  const idx = S.entries.indexOf(e);
-  S.entries.splice(idx, 1); renderGameHead(); renderGame();
+  const gameId = S.game && S.game.id;
+  deleting[e.id] = 1;
+  S.entries = S.entries.filter((x) => x.id !== e.id); renderGameHead(); renderGame();
   let undone = false;
-  toast('Note deleted' + ((e.mediaIds || []).length ? ' (and its photos/clips)' : ''), 'Undo', () => { undone = true; S.entries.splice(idx, 0, e); renderGameHead(); renderGame(); }, 4500);
-  setTimeout(() => { if (!undone) api('deleteEntry', { id: e.id }).catch((err) => toast(errText(err))); }, 4700);
+  toast('Note deleted' + ((e.mediaIds || []).length ? ' (and its photos/clips)' : ''), 'Undo', () => {
+    undone = true; delete deleting[e.id];
+    if (S.game && S.game.id === gameId && !S.entries.some((x) => x.id === e.id)) { S.entries.push(e); renderGameHead(); renderGame(); }
+  }, 4500, true);
+  setTimeout(() => {
+    if (undone) return;
+    api('deleteEntry', { id: e.id }).then(() => { delete deleting[e.id]; })
+      .catch((err) => { delete deleting[e.id]; toast('Couldn’t delete it: ' + errText(err)); if (S.game && S.game.id === gameId) loadGame(); });
+  }, 4700);
 }
 
 // ====================================================================================
@@ -1148,7 +1204,7 @@ $('pvTurn').onclick = () => { // the app is portrait-only; this turns just the p
 document.addEventListener('fullscreenchange', () => { if (PV.open) { PV.s = 1; PV.tx = 0; PV.ty = 0; pvApply(false); } });
 (() => {
   const v = $('photoView');
-  let mode = null, p0 = null, t0 = null, d0 = 0, s0 = 1, q = null, startT = 0, lastTap = 0, moved = false;
+  let mode = null, p0 = null, t0 = null, d0 = 0, s0 = 1, q = null, startT = 0, lastTap = 0, moved = false, lastTouchAt = 0;
   const pt = (t) => ({ x: t.clientX, y: t.clientY });
   const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
   const mid = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 });
@@ -1182,7 +1238,9 @@ document.addEventListener('fullscreenchange', () => { if (PV.open) { PV.s = 1; P
       }
     }
   }, { passive: false });
+  v.addEventListener('touchcancel', () => { mode = null; v.style.background = ''; if (PV.s <= 1.01) { PV.tx = 0; PV.ty = 0; } else pvClamp(); pvApply(true); });
   v.addEventListener('touchend', (ev) => {
+    lastTouchAt = Date.now();
     if (!mode) return;
     if (mode === 'pinch') {
       if (ev.touches.length === 1) { mode = 'pan'; p0 = pt(ev.touches[0]); t0 = { x: PV.tx, y: PV.ty }; } // one finger still down: keep panning
@@ -1210,7 +1268,8 @@ document.addEventListener('fullscreenchange', () => { if (PV.open) { PV.s = 1; P
   });
   // Mouse (desktop): double-click zooms, wheel zooms, arrow keys flip, Esc closes.
   v.addEventListener('dblclick', (ev) => {
-    if (ev.target.closest('button')) return;
+    if (ev.target.closest('button') || Date.now() - lastTouchAt < 800) return; // a phone's double-tap was already handled above
+    lastTouchAt = 0;
     if (PV.s > 1.01) { PV.s = 1; PV.tx = 0; PV.ty = 0; } else { PV.s = 2.5; PV.tx = ev.clientX * -1.5; PV.ty = ev.clientY * -1.5; pvClamp(); }
     pvApply(true);
   });
@@ -1308,11 +1367,13 @@ function renderDesc(m, e) {
   }
   $('mvDescribe').onclick = () => {
     box.innerHTML = `<div class="hint"><span class="dotPulse"></span> ${m.kind === 'video' ? 'Gemini is watching the clip… (a minute or two for a long one)' : 'Gemini is looking at it…'}</div>`;
+    // The answer is saved either way; it only draws here if you're still looking at this one.
+    const here = () => box.isConnected && $('mv') && $('mv').dataset.id === m.id;
     api('describeMedia', { id: m.id }).then((r) => {
       Object.assign(m, r.media); S.media[m.id] = m;
-      if (r.entry) { Object.assign(e, r.entry); const h = $('readBody').querySelector('.sheetHead h3'); if (h) h.textContent = e.title; }
-      renderGame(); renderDesc(m, e);
-    }).catch((err) => { toast(errText(err), null, null, 6000); renderDesc(m, e); });
+      if (r.entry) { e = live(e); Object.assign(e, r.entry); const h = here() && $('readBody').querySelector('.sheetHead h3'); if (h) h.textContent = e.title; }
+      renderGame(); if (here()) renderDesc(m, e); else toast('✨ Description ready for ' + (r.media && r.media.desc && r.media.desc.caption || 'that ' + what));
+    }).catch((err) => { toast(errText(err), null, null, 6000); if (here()) renderDesc(m, e); });
   };
 }
 
@@ -1320,28 +1381,33 @@ function renderDesc(m, e) {
  * A PS5 clip that isn't in Drive yet. First ask PlayStation about this clip right now: if it's finished processing,
  * it's copied on the spot and opens. Otherwise you can pick the video from your Drive or from your phone.
  */
+const clipChecks = {}; // one PlayStation lookup per clip at a time, even if you swipe away and back
 function missingClip(m, e) {
   $('mvDrive').remove(); if ($('mvPlay')) $('mvPlay').remove();
   const hint = $('mvHint');
+  const here = () => openSheets.indexOf('readSheet') >= 0 && $('mv') && $('mv').dataset.id === m.id && hint.isConnected;
   const daysLeft = (at) => { const t = at ? new Date(at) : m.takenAt ? new Date(new Date(m.takenAt).getTime() + 14 * 864e5) : null; return t ? Math.max(0, Math.ceil((t - Date.now()) / 864e5)) : null; };
   const filled = (r, how) => { Object.assign(m, r.media); S.media[m.id] = m; toast(how); renderGame(); if (openSheets.indexOf('readSheet') >= 0 && $('mv') && $('mv').dataset.id === m.id) openMedia(m.id, e); };
   const choices = (headline, at) => {
+    if (!here()) return; // you've moved on to another clip: don't wire this one's buttons onto it
     const left = daysLeft(at);
+    const $h = (id) => hint.querySelector('#' + id);
     hint.innerHTML = `${headline}<br><br>Have it already? Link it here:
       <button class="btn primary" id="mvFromDrive" style="width:100%;margin-top:10px">${icon('i-drive')}Pick from Drive</button>
       <button class="btn" id="mvFill" style="width:100%;margin-top:8px">${icon('i-photo')}Add from my phone</button>
       <button class="btn small" id="mvRecheck" style="margin-top:10px">${icon('i-refresh', 'width:15px;height:15px')}Check PlayStation again</button>
       <input type="file" id="mvIn" accept="video/*" hidden>
       ${left !== null ? `<div style="margin-top:10px;color:var(--ink3)">PlayStation keeps it about ${left} more day${left === 1 ? '' : 's'}.</div>` : ''}`;
-    $('mvRecheck').onclick = check;
-    $('mvFromDrive').onclick = pickFromDrive;
-    $('mvFill').onclick = () => $('mvIn').click();
-    $('mvIn').onchange = () => {
-      const f = $('mvIn').files[0]; $('mvIn').value = '';
+    $h('mvRecheck').onclick = check;
+    $h('mvFromDrive').onclick = pickFromDrive;
+    $h('mvFill').onclick = () => $h('mvIn').click();
+    $h('mvIn').onchange = () => {
+      const inp = $h('mvIn'), f = inp.files[0]; inp.value = '';
       if (!f) return;
       if (!/^video\//.test(f.type)) return toast('Pick the video file.');
-      const done = busy($('mvFill'), 'Uploading… 0%');
-      const pct = (p) => { const b = $('mvFill'); if (b) b.lastChild.textContent = 'Uploading… ' + p + '%'; };
+      const fillBtn = $h('mvFill');
+      const done = busy(fillBtn, 'Uploading… 0%');
+      const pct = (p) => { if (fillBtn.isConnected) fillBtn.lastChild.textContent = 'Uploading… ' + p + '%'; };
       (DEMO ? Promise.resolve('demo-' + Date.now()) : fileToDrive(m.gameId || S.game.id, f, pct))
         .then((fileId) => api('fillMedia', { id: m.id, fileId }))
         .then((r) => { done(); filled(r, '📸 Clip saved to your Drive'); })
@@ -1350,7 +1416,8 @@ function missingClip(m, e) {
   };
   const check = () => {
     hint.innerHTML = `<span class="dotPulse"></span> Checking PlayStation for this clip… (copying a clip can take up to a minute)`;
-    api('fetchClip', { id: m.id }).then((r) => {
+    const p = clipChecks[m.id] || (clipChecks[m.id] = api('fetchClip', { id: m.id }).finally(() => { delete clipChecks[m.id]; }));
+    p.then((r) => {
       if (r.status === 'ready') return filled(r, '🎬 Got it: the clip is in your Drive now');
       if (r.status === 'processing') return choices(`<b>PlayStation is still processing this clip.</b> That can take a day or two; Journeyman grabs it automatically when it’s done.`, r.expiresAt);
       if (r.status === 'gone') return choices(`<b>This clip is no longer in PlayStation’s cloud</b> (it keeps captures about 14 days). If you saved it somewhere, link it below.`, null);
@@ -1360,6 +1427,7 @@ function missingClip(m, e) {
   const pickFromDrive = () => {
     hint.innerHTML = `<span class="dotPulse"></span> Loading your recent Drive videos…`;
     api('driveVideos', {}).then((r) => {
+      if (!here()) return;
       const vids = r.videos || [];
       if (!vids.length) {
         toast('No new videos found in your Drive');
@@ -1374,7 +1442,7 @@ function missingClip(m, e) {
           <div class="dv" style="background-image:url('${v.thumb || ''}')">${v.thumb ? '' : '🎬'}</div>
           <b>${esc(v.name)}</b><small>${esc(ago(v.at))} · ${Math.round((v.size || 0) / 1048576)} MB</small></button>`).join('')}</div>
         <button class="btn small" id="mvBack" style="margin-top:10px">Back</button>`;
-      $('mvBack').onclick = check;
+      hint.querySelector('#mvBack').onclick = check;
       hint.querySelectorAll('[data-fid]').forEach((b) => b.onclick = () => {
         hint.innerHTML = `<span class="dotPulse"></span> Linking it…`;
         api('fillMedia', { id: m.id, fileId: b.dataset.fid, fromDrive: true })
@@ -1597,11 +1665,21 @@ const cap = { gameId: '', type: '', revisit: false, fav: false, spoiler: false, 
 function openCapture(opts) {
   opts = opts || {};
   Object.assign(cap, { gameId: opts.gameId || (S.game && S.game.id) || S.currentGameId, type: opts.type || '', revisit: false, fav: false, spoiler: false });
-  if (!opts.keepFiles) cap.files = [];
+  // A note you started and closed by accident (back, swipe, fold) comes back.
+  const draft = store.get('jmDraft', null);
+  const keep = draft && Date.now() - draft.at < 24 * 3600 * 1000 && (draft.text || (cap.files || []).length) ? draft : null;
+  if (keep) {
+    Object.assign(cap, { type: opts.type || keep.type || '', revisit: !!keep.revisit, fav: !!keep.fav, spoiler: !!keep.spoiler });
+    if (!opts.gameId && keep.gameId) cap.gameId = keep.gameId;
+  } else if (!opts.keepFiles) cap.files = [];
   if (!S.games.find((g) => g.id === cap.gameId)) cap.gameId = (S.games.find((g) => g.status === 'playing') || S.games[0] || {}).id || '';
-  $('capText').value = opts.text || '';
+  $('capText').value = [keep ? keep.text : '', opts.text || ''].filter(Boolean).join(' ');
   cap.openedAt = Date.now();
   renderCapture();
+  if (keep) {
+    $('hint').innerHTML = 'Your unsaved note is back. <button class="linkBtn" id="capFresh">Start over</button>';
+    $('capFresh').onclick = () => { stopListening(); store.set('jmDraft', null); cap.files = []; $('capText').value = ''; Object.assign(cap, { type: '', revisit: false, fav: false, spoiler: false }); renderCapture(); $('hint').textContent = ''; };
+  }
   openSheet('capSheet');
   if (!cap.gameId) setTimeout(() => pickGame(), 300);
   loadPsnRow(opts.psnIds || []);
@@ -1716,12 +1794,24 @@ function renderCapture() {
   $('atts').querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => { cap.files.splice(+b.dataset.rm, 1); renderCapture(); });
   $('hint').classList.remove('err');
   if (cap.files.length && !$('capText').value) $('hint').textContent = 'Say what this is and why it matters — funny, epic, a clue, a place to come back to.';
+  if (openSheets.indexOf('capSheet') >= 0) saveDraft();
 }
 $('typeChips').onclick = (ev) => { const b = ev.target.closest('[data-t]'); if (!b) return; cap.type = cap.type === b.dataset.t ? '' : b.dataset.t; renderCapture(); };
 $('tRevisit').onclick = () => { cap.revisit = !(cap.revisit || cap.type === 'revisit'); if (!cap.revisit && cap.type === 'revisit') cap.type = ''; renderCapture(); };
 $('tFav').onclick = () => { cap.fav = !cap.fav; renderCapture(); };
 $('tSpoil').onclick = () => { cap.spoiler = !cap.spoiler; renderCapture(); };
-$('capCancel').onclick = () => closeSheet('capSheet');
+// Cancel means "throw this note away"; closing any other way keeps it as a draft.
+$('capCancel').onclick = () => {
+  const was = store.get('jmDraft', null), files = cap.files;
+  store.set('jmDraft', null); cap.files = []; closeSheet('capSheet');
+  if (was && was.text) toast('Note discarded', 'Undo', () => { store.set('jmDraft', Object.assign(was, { at: Date.now() })); cap.files = files; openCapture({ gameId: was.gameId }); }, 5000);
+};
+function saveDraft() {
+  if (cap.saving) return;
+  const text = $('capText').value.trim();
+  store.set('jmDraft', text || cap.files.length ? { text, gameId: cap.gameId, type: cap.type, revisit: cap.revisit, fav: cap.fav, spoiler: cap.spoiler, at: Date.now() } : null);
+}
+$('capText').addEventListener('input', saveDraft);
 $('fab').onclick = () => S.games.length ? openCapture() : openGameSheet();
 $('capGame').onclick = () => pickGame();
 $('pickMedia').onclick = () => $('fileIn').click();
@@ -1752,6 +1842,7 @@ $('pickNew').onclick = () => {
 };
 
 $('capSave').onclick = () => {
+  if (cap.saving || openSheets.indexOf('capSheet') < 0) return; // a second tap while it's already saving / sliding away
   const raw = $('capText').value.trim();
   const g = S.games.find((x) => x.id === cap.gameId);
   if (!g) return pickGame();
@@ -1764,25 +1855,44 @@ $('capSave').onclick = () => {
     declineIds: psnRow.items.map((m) => m.id).filter((id) => !psnRow.picked[id]) };
   if (psnIds.length) note.mediaIds = psnIds.slice();
   setCurrent(g.id);
-  if (!cap.files.length) return saveNote(note);
+  cap.saving = true;
+  if (!cap.files.length) { store.set('jmDraft', null); cap.saving = false; return saveNote(note); }
   // With photos/videos: upload first (needs a connection), then save the note with them.
+  // The sheet stays open until the upload finishes, so a failure is never hidden.
   const btn = $('capSave'); const done = busy(btn, 'Uploading…');
-  $('capCancel').disabled = true;
-  uploadAll(g.id, cap.files).then((mediaIds) => { note.mediaIds = psnIds.concat(mediaIds); done(); $('capCancel').disabled = false; saveNote(note); })
-    .catch((e) => { done(); $('capCancel').disabled = false; $('hint').textContent = 'Upload failed: ' + errText(e) + ' Try again when you have signal.'; $('hint').classList.add('err'); });
+  $('capCancel').disabled = true; cap.uploading = true;
+  uploadAll(g.id, cap.files).then((mediaIds) => {
+    note.mediaIds = psnIds.concat(mediaIds); done(); $('capCancel').disabled = false;
+    store.set('jmDraft', null); cap.saving = false; cap.files = [];
+    saveNote(note);
+  }).catch((e) => {
+    done(); $('capCancel').disabled = false; cap.uploading = false; cap.saving = false; saveDraft();
+    $('hint').textContent = 'Upload failed: ' + errText(e) + ' Your note is kept — tap Save again when you have signal.'; $('hint').classList.add('err');
+  });
 };
 
+// Every note is kept on the phone until the journal confirms it, so closing the app or losing signal can't lose it.
+const inflight = {};
+function queueNote(note) { const q = store.get('jmQueue', []).filter((x) => x.clientId !== note.clientId); q.push(note); store.set('jmQueue', q); }
+function unqueueNote(clientId) { store.set('jmQueue', store.get('jmQueue', []).filter((x) => x.clientId !== clientId)); }
 function saveNote(note) {
-  closeSheet('capSheet');
+  cap.uploading = false;
+  if (openSheets.indexOf('capSheet') >= 0) closeSheet('capSheet');
   buzz(20);
+  queueNote(note);
+  inflight[note.clientId] = 1;
   const temp = Object.assign(queuedEntry(note), { _queued: false, aiStatus: 'pending', id: note.clientId });
   const viewing = S.game && S.game.id === note.gameId;
-  if (viewing) { S.entries.push(temp); S.tab = 'journal'; setTabs(); renderGameHead(); renderGame(); }
+  if (viewing && !S.entries.some((x) => x.clientId === note.clientId)) { S.entries.push(temp); S.tab = 'journal'; setTabs(); renderGameHead(); renderGame(); }
   toast('Saved — organizing your note…');
   api('addNote', note).then((r) => {
+    delete inflight[note.clientId];
+    unqueueNote(note.clientId);
     if (S.game && S.game.id === note.gameId) {
-      const i = S.entries.indexOf(temp);
+      // Match by id, not by object: a reload while saving replaces every note object.
+      const i = S.entries.findIndex((x) => x.clientId === note.clientId || x.id === r.entry.id);
       if (i >= 0) S.entries[i] = r.entry; else S.entries.push(r.entry);
+      S.entries = S.entries.filter((x, j) => j === S.entries.findIndex((y) => y.id === x.id));
       (note.mediaIds || []).forEach((id) => { if (S.media[id]) S.media[id].entryId = r.entry.id; });
       // A PS5 capture that was sitting on its own is now part of this note.
       S.entries = S.entries.filter((x) => x.kind !== 'capture' || (x.mediaIds || []).some((id) => (note.mediaIds || []).indexOf(id) < 0));
@@ -1792,16 +1902,18 @@ function saveNote(note) {
     if (!(r.entry.mediaIds || []).length) watchCaptures(r.entry.id);
     bumpCounts(note.gameId, r.entry);
     toast(r.entry.aiStatus === 'failed' ? 'Saved (couldn’t tidy it — your words are kept).' : '“' + (r.entry.title || 'Note') + '” added to your journal');
+    flushQueue(); // the connection works: send anything else that was waiting
   }).catch((e) => {
-    if (isOffline(e) && !(note.mediaIds || []).length) {
-      const q = store.get('jmQueue', []); q.push(note); store.set('jmQueue', q);
-      Object.assign(temp, { _queued: true, aiStatus: '' });
-      if (viewing) renderGame();
-      toast('No signal — saved on your phone. It’ll sync later.');
-    } else {
-      S.entries = S.entries.filter((x) => x !== temp); if (viewing) renderGame();
-      toast(errText(e), 'Retry', () => saveNote(note), 7000);
+    // Nothing is thrown away: it stays on the phone and goes out on the next chance.
+    delete inflight[note.clientId];
+    if (S.game && S.game.id === note.gameId) {
+      const t = S.entries.find((x) => x.clientId === note.clientId);
+      if (t) Object.assign(t, { _queued: true, aiStatus: '' });
+      renderGame();
     }
+    const why = errText(e);
+    toast(isOffline(e) ? 'No signal — saved on your phone. It’ll sync later.'
+      : 'Saved on your phone — it’ll sync later.' + (/reach your journal/.test(why) ? '' : ' (' + why + ')'), 'Retry now', () => flushQueue(true), 7000);
   });
 }
 function queuedEntry(q) {
@@ -1818,20 +1930,25 @@ function bumpCounts(gameId, entry) {
 
 // ---- Offline queue: send waiting notes when the connection is back ----
 let flushing = false;
-function flushQueue() {
+function flushQueue(loud) {
   if (flushing || DEMO) return;
-  const q = store.get('jmQueue', []);
-  if (!q.length || !navigator.onLine) return;
+  const q = store.get('jmQueue', []).filter((n) => !inflight[n.clientId]);
+  if (!q.length) return;
   flushing = true;
-  let sent = 0;
-  q.reduce((p, note) => p.then(() => api('addNote', note).then(() => {
-    sent++; store.set('jmQueue', store.get('jmQueue', []).filter((x) => x.clientId !== note.clientId));
-  })), Promise.resolve()).catch(() => {}).then(() => {
+  let sent = 0, failed = 0;
+  // One note that keeps failing never blocks the others behind it.
+  q.reduce((p, note) => p.then(() => {
+    inflight[note.clientId] = 1;
+    return api('addNote', note).then(() => { sent++; unqueueNote(note.clientId); }, () => { failed++; })
+      .then(() => { delete inflight[note.clientId]; });
+  }), Promise.resolve()).then(() => {
     flushing = false;
     if (sent) { toast(sent + ' saved note' + (sent > 1 ? 's' : '') + ' synced'); S.game ? loadGame() : loadLibrary(); }
+    else if (loud && failed) toast('Still can’t reach your journal. Your notes are safe on this phone.');
   });
 }
-window.addEventListener('online', flushQueue);
+window.addEventListener('online', () => flushQueue());
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') flushQueue(); });
 
 // ====================================================================================
 // Voice (Android Chrome speech recognition; free, on the phone)
@@ -1858,7 +1975,9 @@ function listen(field, btn, hintEl, onDone) {
   rec.onerror = (e) => {
     if (e.error === 'no-speech' || e.error === 'aborted') return say('Didn’t catch anything. Tap the mic and try again.');
     say(e.error === 'not-allowed' || e.error === 'service-not-allowed'
-      ? 'The mic is blocked for this app. Allow it in your phone settings, or use the keyboard mic.' : 'Didn’t catch that. Try again.', true);
+      ? 'The mic is blocked for this app. Allow it in your phone settings, or use the keyboard mic.'
+      : e.error === 'network' ? 'Voice needs signal. Tap the box and use your keyboard’s mic — it works offline.'
+      : 'Didn’t catch that. Try again.', true);
   };
   rec.onresult = (e) => {
     let interim = '';
@@ -1869,8 +1988,10 @@ function listen(field, btn, hintEl, onDone) {
     let said = (finalText + interim).replace(/\s+/g, ' ').trim();
     if (said && !before) said = said.charAt(0).toUpperCase() + said.slice(1);
     field.value = (before ? before + ' ' : '') + said;
+    if (field.id === 'capText') saveDraft();
   };
-  try { rec.start(); } catch (err) { say('Couldn’t start the mic. Use the keyboard’s mic instead.', true); }
+  // Hold on to it from the start, so Save / closing can stop it even while the permission prompt is still up.
+  try { rec.start(); listening = rec; } catch (err) { say('Couldn’t start the mic. Use the keyboard’s mic instead.', true); }
 }
 $('mic').onclick = () => listen($('capText'), $('mic'), $('hint'));
 
@@ -1910,8 +2031,9 @@ function makeThumb(file, maxSide, maxChars) {
 
 function uploadAll(gameId, items) {
   const ids = [];
-  return items.reduce((p, item, i) => p.then(() => uploadOne(gameId, item, (pct) => { const b = $('bar' + i); if (b) b.style.width = pct + '%'; })
-    .then((m) => { ids.push(m.id); S.media[m.id] = m; })), Promise.resolve()).then(() => ids);
+  // A file that already made it (before a failed retry) isn't uploaded twice.
+  return items.reduce((p, item, i) => p.then(() => item.mediaId ? ids.push(item.mediaId) : uploadOne(gameId, item, (pct) => { const b = $('bar' + i); if (b) b.style.width = pct + '%'; })
+    .then((m) => { item.mediaId = m.id; ids.push(m.id); S.media[m.id] = m; })), Promise.resolve()).then(() => ids);
 }
 
 function uploadOne(gameId, item, onPct) {
