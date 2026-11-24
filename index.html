@@ -1101,7 +1101,14 @@ function missingClip(m, e) {
     hint.innerHTML = `<span class="dotPulse"></span> Loading your recent Drive videos…`;
     api('driveVideos', {}).then((r) => {
       const vids = r.videos || [];
-      if (!vids.length) return choices(`<b>No recent videos in your Drive</b> that aren’t already in Journeyman.`, null);
+      if (!vids.length) {
+        toast('No new videos found in your Drive');
+        choices(`<b>Your Drive has no videos from the last 45 days that aren’t already in Journeyman.</b>
+          Videos you save on your phone usually go to Google Photos, not Drive. To use one, tap <b>Add from my phone</b>:
+          in the PlayStation App, open the clip, tap Download, then pick it here.`, null);
+        hint.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
       hint.innerHTML = `<b>Pick the clip</b> <span style="color:var(--ink3)">(your newest Drive videos)</span>
         <div class="driveGrid">${vids.map((v) => `<button class="driveVid" data-fid="${esc(v.id)}">
           <div class="dv" style="background-image:url('${v.thumb || ''}')">${v.thumb ? '' : '🎬'}</div>
